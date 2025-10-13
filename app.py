@@ -182,5 +182,5 @@ def gerar_email():
     return render_template('resultado.html', resultado_html=html_gerado)
 
 # --- Inicia o servidor ---
-#if __name__ == '__main__':
-#   app.run(debug=True)
+if __name__ == '__main__':
+   app.run(debug=True)
