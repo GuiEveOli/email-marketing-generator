@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de E-mail de Ofertas</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background-color: #f4f4f9; }
+        h1 { color: #333; }
+        textarea { width: 100%; height: 200px; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 5px; }
+        button { background-color: #ff0000; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        button:hover { background-color: #cc0000; }
+    </style>
+</head>
+<body>
+    <h1>Gerador de E-mail de Ofertas 🛍️</h1>
+    <p>Cole as URLs dos produtos do Supermercado Koch abaixo (uma por linha) e clique em "Gerar".</p>
+    
+    <form action="/gerar" method="post">
+        <textarea name="urls" placeholder="https://www.superkoch.com.br/produto/..." required></textarea>
+        <br><br>
+        <button id="submitBtn" type="submit">Gerar E-mail</button>
+    </form>
+
+    <!-- Loader overlay -->
+    <div id="loaderOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background: #fff; padding: 24px; border-radius:12px; display:flex; gap:16px; align-items:center; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+            <div class="spinner" style="width:48px; height:48px; border:6px solid #eee; border-top-color:#ff0000; border-radius:50%; animation:spin 1s linear infinite;"></div>
+            <div style="font-size:16px; color:#333; font-weight:600;">Gerando e-mail... aguarde</div>
+        </div>
+    </div>
+
+    <script>
+        // Adiciona keyframes dinamicamente para evitar tocar no <style> inicial
+        const style = document.createElement('style');
+        style.innerHTML = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
+        document.head.appendChild(style);
+
+        const form = document.querySelector('form[action="/gerar"][method="post"]');
+        const loader = document.getElementById('loaderOverlay');
+        const submitBtn = document.getElementById('submitBtn');
+
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                // Mostrar loader e desabilitar botão para evitar múltiplos submits
+                loader.style.display = 'flex';
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.7';
+                    submitBtn.style.cursor = 'not-allowed';
+                }
+
+                // Em caso de formulários que usem AJAX, você pode cancelar o comportamento padrão
+                // e reabilitar o botão quando a requisição terminar. Aqui mantemos o comportamento padrão
+                // para submissão normal (navegação/POST) — o loader ficará visível durante o carregamento.
+            });
+        }
+    </script>
+</body>
+</html>
