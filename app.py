@@ -12,7 +12,6 @@ from flask import Flask, render_template, request
 # --- Configuração do Flask ---
 app = Flask(__name__)
 
-# --- LÓGICA DO SEU SCRIPT ORIGINAL, AGORA EM UMA FUNÇÃO ---
 def buscar_produtos(urls):
     """
     Recebe uma lista de URLs, busca os dados dos produtos e retorna o HTML final.
