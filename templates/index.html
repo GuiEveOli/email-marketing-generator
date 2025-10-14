@@ -7,18 +7,49 @@
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background-color: #f4f4f9; }
         h1 { color: #333; }
+        h3 { color: #333; margin-bottom: 15px; }
         textarea { width: 100%; height: 200px; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 5px; }
         button { background-color: #ff0000; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
         button:hover { background-color: #cc0000; }
+        
+        /* Responsivo para campos UTM */
+        @media (max-width: 600px) {
+            .utm-grid { 
+                display: block !important;
+            }
+            .utm-grid > div {
+                margin-bottom: 15px;
+            }
+        }
     </style>
 </head>
 <body>
     <h1>Gerador de E-mail de Ofertas 🛍️</h1>
-    <p>Cole as URLs dos produtos do Supermercado Koch abaixo (uma por linha) e clique em "Gerar".</p>
+    <p>Cole as URLs dos produtos do Supermercado Koch abaixo (uma por linha) e configure os parâmetros UTM para rastreamento.</p>
     
     <form action="/gerar" method="post">
         <textarea name="urls" placeholder="https://www.superkoch.com.br/produto/..." required></textarea>
         <br><br>
+        
+        <h3>Configuração UTM (Controle de Rastreamento)</h3>
+        <div style="background-color: #e8f4f8; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; color: #2c5aa0;">
+            📊 <strong>UTM Medium Automático:</strong> Será gerado automaticamente como "produto 01", "produto 02", etc., baseado na ordem dos produtos.
+        </div>
+        <div class="utm-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <div>
+                <label for="utm_source" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">UTM Source *</label>
+                <input type="text" id="utm_source" name="utm_source" value="email-mkt" required
+                       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+                <small style="color: #666;">ex: google, newsletter</small>
+            </div>
+            <div>
+                <label for="utm_campaign" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">UTM Campaign *</label>
+                <input type="text" id="utm_campaign" name="utm_campaign" value="cupom 15 novo site" required
+                       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+                <small style="color: #666;">ex: spring_sale</small>
+            </div>
+        </div>
+        
         <button id="submitBtn" type="submit">Gerar E-mail</button>
     </form>
 

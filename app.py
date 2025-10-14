@@ -2,6 +2,7 @@
 
 import time
 import re
+from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -12,8 +13,27 @@ from flask import Flask, render_template, request
 # --- Configuração do Flask ---
 app = Flask(__name__)
 
+# --- FUNÇÃO AUXILIAR PARA ADICIONAR UTM ---
+def adicionar_utm_na_url(url_original, utm_source, utm_medium, utm_campaign):
+    """
+    Adiciona os parâmetros UTM à URL do produto.
+    """
+    # Codifica os parâmetros para URL
+    utm_source_encoded = quote_plus(utm_source)
+    utm_medium_encoded = quote_plus(utm_medium)
+    utm_campaign_encoded = quote_plus(utm_campaign)
+    
+    # Verifica se a URL já tem parâmetros
+    separador = '&' if '?' in url_original else '?'
+    
+    # Monta os parâmetros UTM
+    utm_params = f"utm_source={utm_source_encoded}&utm_medium={utm_medium_encoded}&utm_campaign={utm_campaign_encoded}"
+    
+    # Retorna a URL com os parâmetros UTM
+    return f"{url_original}{separador}{utm_params}"
+
 # --- LÓGICA DO SEU SCRIPT ORIGINAL, AGORA EM UMA FUNÇÃO ---
-def buscar_produtos(urls):
+def buscar_produtos(urls, utm_source="email-mkt", utm_campaign="cupom+15+novo+site"):
     """
     Recebe uma lista de URLs, busca os dados dos produtos e retorna o HTML final.
     """
@@ -38,10 +58,13 @@ def buscar_produtos(urls):
         return "<h1>Erro: O arquivo 'email_base.html' não foi encontrado.</h1>"
 
     todos_os_produtos_html = []
+    contador_produto = 0  # Contador para numerar os produtos
     
     for url in urls:
         if not url.strip():  # Pula linhas em branco
             continue
+        
+        contador_produto += 1  # Incrementa o contador para cada produto válido
         
         print(f"Processando URL: {url.split('/')[-1]}")
         try:
@@ -78,6 +101,12 @@ def buscar_produtos(urls):
             preco_por_formatado = f"{preco_por_num:.2f}".replace('.', ',')
             preco_de_formatado = f"{preco_de_num:.2f}".replace('.', ',')
 
+            # Gera o UTM Medium automaticamente baseado no número do produto
+            utm_medium_automatico = f"produto {contador_produto:02d}"  # Formato: produto 01, produto 02, etc.
+            
+            # Cria a URL com parâmetros UTM (usando o utm_medium automático)
+            url_com_utm = adicionar_utm_na_url(url, utm_source, utm_medium_automatico, utm_campaign)
+
             # Geração condicional do HTML de desconto
             html_bloco_desconto = ""
             html_selo_oferta = ""
@@ -113,7 +142,7 @@ def buscar_produtos(urls):
                                         {html_selo_oferta}
                                         <tr>
                                             <td align="center" valign="top">
-                                                <a target="_blank" href="{url}"><img alt="{nome_produto}" style="display: block; margin: 0px auto; max-width: 120px;" src="{url_imagem}" /></a>
+                                                <a target="_blank" href="{url_com_utm}"><img alt="{nome_produto}" style="display: block; margin: 0px auto; max-width: 120px;" src="{url_imagem}" /></a>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -130,7 +159,7 @@ def buscar_produtos(urls):
                                             <td style="font-size: 16px; font-weight: 700; color: #212529; font-family: 'Roboto', Arial, sans-serif; padding-bottom: 12px;">R$ {preco_por_formatado}</td>
                                         </tr>
                                         <tr>
-                                            <td><a target="_blank" style="background-color:#ff0000;border-radius:50px;color:#ffffff;display:block;font-family:'Roboto', Arial, sans-serif;font-size:12px;font-weight:bold;height:28px;line-height:28px;text-align:center;text-decoration:none;width:100%;-webkit-text-size-adjust:none;" href="{url}">Ver Produto</a></td>
+                                            <td><a target="_blank" style="background-color:#ff0000;border-radius:50px;color:#ffffff;display:block;font-family:'Roboto', Arial, sans-serif;font-size:12px;font-weight:bold;height:28px;line-height:28px;text-align:center;text-decoration:none;width:100%;-webkit-text-size-adjust:none;" href="{url_com_utm}">Ver Produto</a></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -173,10 +202,16 @@ def gerar_email():
     # Converte o texto em uma lista de URLs (uma por linha)
     lista_urls = urls_texto.splitlines()
     
-    print(f"Recebidas {len(lista_urls)} URLs para processar.")
+    # Pega os parâmetros UTM do formulário (utm_medium será gerado automaticamente)
+    utm_source = request.form.get('utm_source', 'email-mkt')
+    utm_campaign = request.form.get('utm_campaign', 'cupom+15+novo+site')
     
-    # Chama nossa função de busca
-    html_gerado = buscar_produtos(lista_urls)
+    print(f"Recebidas {len(lista_urls)} URLs para processar.")
+    print(f"UTM configurados - Source: {utm_source}, Campaign: {utm_campaign}")
+    print("UTM Medium será gerado automaticamente como: produto 01, produto 02, etc.")
+    
+    # Chama nossa função de busca com os parâmetros UTM (utm_medium será gerado automaticamente)
+    html_gerado = buscar_produtos(lista_urls, utm_source, utm_campaign)
     
     # Envia o HTML gerado para a página de resultado
     return render_template('resultado.html', resultado_html=html_gerado)
