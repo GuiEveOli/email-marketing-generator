@@ -1,0 +1,28 @@
+{# 1. Inclui o header com todo o CSS #}
+{% include 'components/header.html' %}
+
+{# 2. Inclui os blocos que são sempre fixos #}
+{% include 'components/bloco_01_banners_principais.html' %}
+{% include 'components/bloco_02_banner_entrega.html' %}
+
+{# 3. Inclui o bloco de categorias dinamicamente #}
+{# A variável 'componente_bloco_03' será passada pelo Python (app.py) #}
+{% if componente_bloco_03 %}
+    {% include componente_bloco_03 %}
+{% endif %}
+
+{# 4. O espaço reservado para os produtos (Bloco 04) #}
+<tr>
+    <td align="center" valign="top" style="font-size: 0; padding: 0;">
+        <!-- PRODUTOS_AQUI -->
+    </td>
+</tr>
+
+{# 5. Inclui o bloco de banner full (opcional) #}
+{# A variável 'componente_bloco_05' será passada pelo Python #}
+{% if componente_bloco_05 %}
+    {% include componente_bloco_05 %}
+{% endif %}
+
+{# 6. Inclui o rodapé que fecha o e-mail #}
+{% include 'components/footer.html' %}

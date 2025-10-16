@@ -7,45 +7,62 @@
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background-color: #f4f4f9; }
         h1 { color: #333; }
-        h3 { color: #333; margin-bottom: 15px; }
-        textarea { width: 100%; height: 200px; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 5px; }
-        button { background-color: #ff0000; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        h3 { color: #333; margin-top: 30px; margin-bottom: 15px; border-top: 1px solid #ddd; padding-top: 20px;}
+        textarea, select, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        select { padding: 10px; }
+        button { background-color: #ff0000; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 20px; }
         button:hover { background-color: #cc0000; }
         
-        /* Responsivo para campos UTM */
         @media (max-width: 600px) {
-            .utm-grid { 
-                display: block !important;
-            }
-            .utm-grid > div {
-                margin-bottom: 15px;
-            }
+            .utm-grid { display: block !important; }
+            .utm-grid > div { margin-bottom: 15px; }
         }
     </style>
 </head>
 <body>
     <h1>Gerador de E-mail de Ofertas 🛍️</h1>
-    <p>Cole as URLs dos produtos do Supermercado Koch abaixo (uma por linha) e configure os parâmetros UTM para rastreamento.</p>
+    <p>Cole as URLs dos produtos, personalize os componentes do e-mail e configure os parâmetros de rastreamento.</p>
     
     <form action="/gerar" method="post">
+        <h3>1. URLs dos Produtos</h3>
         <textarea name="urls" placeholder="https://www.superkoch.com.br/produto/..." required></textarea>
-        <br><br>
         
-        <h3>Configuração UTM (Controle de Rastreamento)</h3>
-        <div style="background-color: #e8f4f8; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; color: #2c5aa0;">
-            📊 <strong>UTM Medium Automático:</strong> Será gerado automaticamente como "produto 01", "produto 02", etc., baseado na ordem dos produtos.
+        <h3>2. Seleção de Componentes</h3>
+        <div>
+            <label for="componente_bloco_03" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Banners de Categoria (Bloco 03)</label>
+            <select id="componente_bloco_03" name="componente_bloco_03">
+                <option value="components/bloco_03_categorias_2_colunas.html" selected>Layout Padrão (2 Colunas)</option>
+                <option value="">Nenhum (não incluir este bloco)</option>
+            </select>
         </div>
-        <div class="utm-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+        <div style="margin-top: 15px;">
+            <label for="componente_bloco_05" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Banner Full (Bloco 05)</label>
+            <select id="componente_bloco_05" name="componente_bloco_05">
+                <option value="components/bloco_05_banner_full.html" selected>Incluir Banner Full</option>
+                <option value="">Nenhum (não incluir este bloco)</option>
+            </select>
+        </div>
+        
+        <h3>3. Configuração UTM (Controle de Rastreamento)</h3>
+        <div style="background-color: #e8f4f8; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; color: #2c5aa0;">
+            📊 <strong>UTM Medium Automático:</strong> Será gerado como "produto 01", "produto 02", etc.
+        </div>
+        <div class="utm-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
             <div>
                 <label for="utm_source" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">UTM Source *</label>
-                <input type="text" id="utm_source" name="utm_source" value="email-mkt" required
-                       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+                <input type="text" id="utm_source" name="utm_source" value="email-mkt" required>
                 <small style="color: #666;">ex: google, newsletter</small>
             </div>
             <div>
                 <label for="utm_campaign" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">UTM Campaign *</label>
-                <input type="text" id="utm_campaign" name="utm_campaign" value="cupom 15 novo site" required
-                       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+                <input type="text" id="utm_campaign" name="utm_campaign" value="cupom 15 novo site" required>
                 <small style="color: #666;">ex: spring_sale</small>
             </div>
         </div>
@@ -53,7 +70,6 @@
         <button id="submitBtn" type="submit">Gerar E-mail</button>
     </form>
 
-    <!-- Loader overlay -->
     <div id="loaderOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
         <div style="background: #fff; padding: 24px; border-radius:12px; display:flex; gap:16px; align-items:center; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
             <div class="spinner" style="width:48px; height:48px; border:6px solid #eee; border-top-color:#ff0000; border-radius:50%; animation:spin 1s linear infinite;"></div>
@@ -62,28 +78,20 @@
     </div>
 
     <script>
-        // Adiciona keyframes dinamicamente para evitar tocar no <style> inicial
         const style = document.createElement('style');
         style.innerHTML = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
         document.head.appendChild(style);
-
         const form = document.querySelector('form[action="/gerar"][method="post"]');
         const loader = document.getElementById('loaderOverlay');
         const submitBtn = document.getElementById('submitBtn');
-
         if (form) {
             form.addEventListener('submit', function (e) {
-                // Mostrar loader e desabilitar botão para evitar múltiplos submits
                 loader.style.display = 'flex';
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.style.opacity = '0.7';
                     submitBtn.style.cursor = 'not-allowed';
                 }
-
-                // Em caso de formulários que usem AJAX, você pode cancelar o comportamento padrão
-                // e reabilitar o botão quando a requisição terminar. Aqui mantemos o comportamento padrão
-                // para submissão normal (navegação/POST) — o loader ficará visível durante o carregamento.
             });
         }
     </script>
