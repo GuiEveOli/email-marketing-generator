@@ -134,6 +134,20 @@
         .copy-btn:hover {
             background:#218838;
         }
+
+        .erro-container {
+            display: none;
+            padding: 40px;
+            text-align: center;
+            background: #f8d7da;
+            color: #721c24;
+            border-radius: 8px;
+            margin: 20px;
+        }
+
+        .erro-container h2 {
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -142,12 +156,20 @@
         <div>Use os botões para baixar, ver código ou gerar novo e-mail</div>
     </div>
 
-    <div class="iframe-wrap">
-        <iframe id="preview" sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts">{{ resultado_html|safe }}</iframe>
+    <div class="erro-container" id="erroContainer">
+        <h2>⚠️ Nenhum email foi gerado</h2>
+        <p>Por favor, volte e gere um novo email.</p>
+        <a href="/" class="floating-btn btn-secondary" style="display: inline-flex; margin-top: 20px;">
+            Voltar ao Gerador
+        </a>
+    </div>
+
+    <div class="iframe-wrap" id="iframeWrap">
+        <iframe id="preview" sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
     </div>
     
     <!-- Botões flutuantes -->
-    <div class="floating-buttons">
+    <div class="floating-buttons" id="floatingButtons">
         <!-- Botão para voltar/gerar novo -->
         <a href="/" class="floating-btn btn-secondary" title="Gerar Novo E-mail">
             <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -189,19 +211,27 @@
     </div>
 
     <script>
-        // Recebe o HTML gerado do servidor (serializado com tojson)
-        const generatedHtml = {{ resultado_html|tojson | safe }};
+        // Recupera o HTML gerado do sessionStorage
+        const generatedHtml = sessionStorage.getItem('emailGerado');
 
-        const previewIframe = document.getElementById('preview');
-        // Coloca o HTML dentro do iframe para preview
-        if (previewIframe) {
+        if (!generatedHtml) {
+            // Se não houver HTML, mostra erro
+            document.getElementById('erroContainer').style.display = 'block';
+            document.getElementById('iframeWrap').style.display = 'none';
+            document.getElementById('floatingButtons').style.display = 'none';
+        } else {
+            // Carrega o HTML no iframe
+            const previewIframe = document.getElementById('preview');
+            
             try {
                 previewIframe.srcdoc = generatedHtml;
             } catch (e) {
                 // fallback: escrever no documento do iframe
                 try {
                     const doc = previewIframe.contentDocument || previewIframe.contentWindow.document;
-                    doc.open(); doc.write(generatedHtml); doc.close();
+                    doc.open(); 
+                    doc.write(generatedHtml); 
+                    doc.close();
                 } catch (err) {
                     console.warn('Não foi possível definir srcdoc do iframe:', err);
                 }
@@ -217,6 +247,11 @@
 
         // Função para baixar HTML
         function downloadHtml(filename = 'email_gerado.html') {
+            if (!generatedHtml) {
+                alert('Nenhum email foi gerado!');
+                return;
+            }
+
             try {
                 const blob = new Blob([generatedHtml], { type: 'text/html;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
@@ -234,34 +269,51 @@
         }
 
         // Event listeners
-        downloadBtn.addEventListener('click', function () {
-            const now = new Date();
-            const ts = now.toISOString().replace(/[:.]/g, '-');
-            downloadHtml(`email_gerado_${ts}.html`);
-        });
-
-        viewHtmlBtn.addEventListener('click', function () {
-            htmlContent.textContent = generatedHtml;
-            htmlModal.style.display = 'block';
-        });
-
-        closeModal.addEventListener('click', function () {
-            htmlModal.style.display = 'none';
-        });
-
-        copyBtn.addEventListener('click', function () {
-            navigator.clipboard.writeText(generatedHtml).then(function() {
-                copyBtn.textContent = 'Copiado!';
-                copyBtn.style.background = '#28a745';
-                setTimeout(function() {
-                    copyBtn.textContent = 'Copiar HTML';
-                    copyBtn.style.background = '#28a745';
-                }, 2000);
-            }).catch(function(err) {
-                console.error('Erro ao copiar:', err);
-                alert('Não foi possível copiar o HTML. Use Ctrl+C manualmente.');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', function () {
+                const now = new Date();
+                const ts = now.toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                downloadHtml(`email_gerado_${ts}.html`);
             });
-        });
+        }
+
+        if (viewHtmlBtn) {
+            viewHtmlBtn.addEventListener('click', function () {
+                if (!generatedHtml) {
+                    alert('Nenhum email foi gerado!');
+                    return;
+                }
+                htmlContent.textContent = generatedHtml;
+                htmlModal.style.display = 'block';
+            });
+        }
+
+        if (closeModal) {
+            closeModal.addEventListener('click', function () {
+                htmlModal.style.display = 'none';
+            });
+        }
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function () {
+                if (!generatedHtml) {
+                    alert('Nenhum email foi gerado!');
+                    return;
+                }
+
+                navigator.clipboard.writeText(generatedHtml).then(function() {
+                    copyBtn.textContent = 'Copiado!';
+                    copyBtn.style.background = '#28a745';
+                    setTimeout(function() {
+                        copyBtn.textContent = 'Copiar HTML';
+                        copyBtn.style.background = '#28a745';
+                    }, 2000);
+                }).catch(function(err) {
+                    console.error('Erro ao copiar:', err);
+                    alert('Não foi possível copiar o HTML. Use Ctrl+C manualmente.');
+                });
+            });
+        }
 
         // Fechar modal clicando fora dele
         window.addEventListener('click', function(event) {
@@ -274,6 +326,14 @@
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape' && htmlModal.style.display === 'block') {
                 htmlModal.style.display = 'none';
+            }
+        });
+
+        // Limpar sessionStorage ao sair da página de resultado
+        window.addEventListener('beforeunload', function() {
+            // Só limpa se estiver navegando para outra página (não refresh)
+            if (performance.navigation.type !== performance.navigation.TYPE_RELOAD) {
+                sessionStorage.removeItem('emailGerado');
             }
         });
     </script>

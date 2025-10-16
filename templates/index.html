@@ -1,99 +1,968 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de E-mail de Ofertas</title>
+    <title>Gerador de Email Marketing</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background-color: #f4f4f9; }
-        h1 { color: #333; }
-        h3 { color: #333; margin-top: 30px; margin-bottom: 15px; border-top: 1px solid #ddd; padding-top: 20px;}
-        textarea, select, input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            font-size: 14px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+        * {
+            margin: 0;
+            padding: 0;
             box-sizing: border-box;
         }
-        select { padding: 10px; }
-        button { background-color: #ff0000; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 20px; }
-        button:hover { background-color: #cc0000; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .search-section {
+            margin-bottom: 30px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        #termoBusca {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        #termoBusca:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-adicionar {
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .btn-adicionar:hover {
+            background: #5568d3;
+        }
+
+        /* Dropdown de sugestões */
+        .sugestoes-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 80px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .sugestoes-dropdown.show {
+            display: block;
+        }
+
+        .sugestao-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sugestao-item:hover {
+            background: #f8f9fa;
+        }
+
+        .sugestao-item:last-child {
+            border-bottom: none;
+        }
+
+        .sugestao-item img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .sugestao-info {
+            flex: 1;
+        }
+
+        .sugestao-nome {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .sugestao-detalhes {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .sem-resultados {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .produtos-selecionados {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            min-height: 100px;
+        }
+
+        .produto-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .produto-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .produto-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .produto-card h3 {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 5px;
+            height: 40px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .produto-card .info {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 3px;
+        }
+
+        .btn-remover {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+
+        .btn-remover:hover {
+            background: #c82333;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        .btn-gerar {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .btn-gerar:hover {
+            transform: scale(1.02);
+        }
+
+        .btn-gerar:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .mensagem {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .mensagem.erro {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .mensagem.sucesso {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        /* Sistema de notificações toast */
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            max-width: 500px;
+            animation: slideUp 0.3s ease-out;
+            pointer-events: auto;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .toast.hide {
+            animation: slideDown 0.3s ease-out forwards;
+        }
+
+        .toast.sucesso {
+            border-left: 4px solid #28a745;
+        }
+
+        .toast.sucesso .toast-icon {
+            color: #28a745;
+            font-size: 24px;
+        }
+
+        .toast.erro {
+            border-left: 4px solid #dc3545;
+        }
+
+        .toast.erro .toast-icon {
+            color: #dc3545;
+            font-size: 24px;
+        }
+
+        .toast.info {
+            border-left: 4px solid #17a2b8;
+        }
+
+        .toast.info .toast-icon {
+            color: #17a2b8;
+            font-size: 24px;
+        }
+
+        .toast-icon {
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        .toast-message {
+            flex: 1;
+            color: #333;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 20px;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .toast-close:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        /* Loading overlay */
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .loading.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid rgba(255, 255, 255, 0.3);
+            border-top: 6px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .loading p {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        .contador-produtos {
+            text-align: center;
+            padding: 15px;
+            background: #e7f3ff;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            color: #0066cc;
+        }
+
+        /* Estilos para drag & drop */
+        .produto-item {
+            cursor: move;
+            transition: all 0.2s ease;
+            position: relative;
+        }
         
-        @media (max-width: 600px) {
-            .utm-grid { display: block !important; }
-            .utm-grid > div { margin-bottom: 15px; }
+        .produto-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        
+        .produto-item.drag-over {
+            border-top: 3px solid #007bff;
+            padding-top: 8px;
+        }
+        
+        .produto-item .drag-handle {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            margin-right: 8px;
+            cursor: grab;
+            color: #6c757d;
+            vertical-align: middle;
+        }
+        
+        .produto-item .drag-handle:active {
+            cursor: grabbing;
+        }
+        
+        .produto-item .ordem-numero {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            background-color: #007bff;
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 14px;
+            margin-right: 8px;
+            vertical-align: middle;
         }
     </style>
 </head>
 <body>
-    <h1>Gerador de E-mail de Ofertas 🛍️</h1>
-    <p>Cole as URLs dos produtos, personalize os componentes do e-mail e configure os parâmetros de rastreamento.</p>
-    
-    <form action="/gerar" method="post">
-        <h3>1. URLs dos Produtos</h3>
-        <textarea name="urls" placeholder="https://www.superkoch.com.br/produto/..." required></textarea>
-        
-        <h3>2. Seleção de Componentes</h3>
-        <div>
-            <label for="componente_bloco_03" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Banners de Categoria (Bloco 03)</label>
-            <select id="componente_bloco_03" name="componente_bloco_03">
-                <option value="components/bloco_03_categorias_2_colunas.html" selected>Layout Padrão (2 Colunas)</option>
-                <option value="">Nenhum (não incluir este bloco)</option>
-            </select>
-        </div>
-        <div style="margin-top: 15px;">
-            <label for="componente_bloco_05" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Banner Full (Bloco 05)</label>
-            <select id="componente_bloco_05" name="componente_bloco_05">
-                <option value="components/bloco_05_banner_full.html" selected>Incluir Banner Full</option>
-                <option value="">Nenhum (não incluir este bloco)</option>
-            </select>
-        </div>
-        
-        <h3>3. Configuração UTM (Controle de Rastreamento)</h3>
-        <div style="background-color: #e8f4f8; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; color: #2c5aa0;">
-            📊 <strong>UTM Medium Automático:</strong> Será gerado como "produto 01", "produto 02", etc.
-        </div>
-        <div class="utm-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-            <div>
-                <label for="utm_source" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">UTM Source *</label>
-                <input type="text" id="utm_source" name="utm_source" value="email-mkt" required>
-                <small style="color: #666;">ex: google, newsletter</small>
-            </div>
-            <div>
-                <label for="utm_campaign" style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">UTM Campaign *</label>
-                <input type="text" id="utm_campaign" name="utm_campaign" value="cupom 15 novo site" required>
-                <small style="color: #666;">ex: spring_sale</small>
-            </div>
-        </div>
-        
-        <button id="submitBtn" type="submit">Gerar E-mail</button>
-    </form>
+    <!-- Loading overlay -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Gerando email marketing...</p>
+    </div>
 
-    <div id="loaderOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-        <div style="background: #fff; padding: 24px; border-radius:12px; display:flex; gap:16px; align-items:center; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-            <div class="spinner" style="width:48px; height:48px; border:6px solid #eee; border-top-color:#ff0000; border-radius:50%; animation:spin 1s linear infinite;"></div>
-            <div style="font-size:16px; color:#333; font-weight:600;">Gerando e-mail... aguarde</div>
-        </div>
+    <!-- Container de toasts -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container">
+        <h1>🎨 Gerador de Email Marketing</h1>
+        <p class="subtitle">Adicione produtos por URL, SKU ou EAN</p>
+
+        <form id="formGerador">
+            <!-- Seção de Busca e Produtos -->
+            <div class="search-section">
+                <label>1. Buscar e Adicionar Produtos</label>
+                <div class="search-box">
+                    <input 
+                        type="text" 
+                        id="termoBusca" 
+                        placeholder="Digite o SKU, EAN ou nome do produto..."
+                        autocomplete="off"
+                    >
+                    <div class="sugestoes-dropdown" id="sugestoesDropdown">
+                        <!-- Sugestões aparecerão aqui -->
+                    </div>
+                    <button type="button" class="btn-adicionar" onclick="adicionarProdutoPorUrl()">
+                        ➕ Adicionar
+                    </button>
+                </div>
+                
+                <div class="contador-produtos" id="contadorProdutos">
+                    Nenhum produto selecionado
+                </div>
+
+                <div class="produtos-selecionados" id="produtosSelecionados">
+                    <!-- Cards dos produtos aparecerão aqui -->
+                </div>
+            </div>
+
+            <!-- Campos UTM -->
+            <div class="form-group">
+                <label>2. Configurações UTM</label>
+                <input 
+                    type="text" 
+                    name="utm_source" 
+                    id="utm_source" 
+                    placeholder="ex: email-mkt"
+                    value="email-mkt"
+                >
+            </div>
+
+            <div class="form-group">
+                <label>Campanha UTM</label>
+                <input 
+                    type="text" 
+                    name="utm_campaign" 
+                    id="utm_campaign" 
+                    placeholder="ex: promo-verao"
+                    value=""
+                >
+            </div>
+
+            <!-- Seleção de Componentes -->
+            <div class="form-group">
+                <label>3. Componente Bloco 03</label>
+                <select name="componente_bloco_03" id="componente_bloco_03">
+                    <option value="">Nenhum</option>
+                    <option value="components/bloco_03_categorias_2_colunas.html">Categorias 2 Colunas</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>4. Componente Bloco 05</label>
+                <select name="componente_bloco_05" id="componente_bloco_05">
+                    <option value="">Nenhum</option>
+                    <option value="components/bloco_05_banner.html">Banner</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn-gerar" id="btnGerar">
+                🚀 Gerar Email Marketing
+            </button>
+        </form>
     </div>
 
     <script>
-        const style = document.createElement('style');
-        style.innerHTML = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
-        document.head.appendChild(style);
-        const form = document.querySelector('form[action="/gerar"][method="post"]');
-        const loader = document.getElementById('loaderOverlay');
-        const submitBtn = document.getElementById('submitBtn');
-        if (form) {
-            form.addEventListener('submit', function (e) {
-                loader.style.display = 'flex';
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.style.opacity = '0.7';
-                    submitBtn.style.cursor = 'not-allowed';
+        // ===== VARIÁVEL GLOBAL =====
+        let produtosSelecionados = [];
+        let timeoutBusca = null;
+        let draggedElement = null;
+        let draggedIndex = null;
+
+        // ===== SISTEMA DE NOTIFICAÇÕES TOAST =====
+        function mostrarMensagem(texto, tipo = 'info') {
+            const container = document.getElementById('toastContainer');
+            
+            // Cria o elemento toast
+            const toast = document.createElement('div');
+            toast.className = `toast ${tipo}`;
+            
+            // Define o ícone baseado no tipo
+            let icone = '✓';
+            if (tipo === 'erro') icone = '✕';
+            if (tipo === 'info') icone = 'ℹ';
+            
+            toast.innerHTML = `
+                <span class="toast-icon">${icone}</span>
+                <span class="toast-message">${texto}</span>
+                <button class="toast-close" onclick="fecharToast(this)">×</button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Remove automaticamente após 5 segundos
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.classList.add('hide');
+                    setTimeout(() => {
+                        if (toast.parentElement) {
+                            toast.remove();
+                        }
+                    }, 300);
                 }
+            }, 5000);
+        }
+
+        function fecharToast(button) {
+            const toast = button.closest('.toast');
+            toast.classList.add('hide');
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 300);
+        }
+
+        // ===== FUNÇÕES DE CONTADOR =====
+        function atualizarContador() {
+            const contador = document.getElementById('contadorProdutos');
+            const qtd = produtosSelecionados.length;
+            
+            if (qtd === 0) {
+                contador.textContent = 'Nenhum produto selecionado';
+            } else if (qtd === 1) {
+                contador.textContent = '1 produto selecionado';
+            } else {
+                contador.textContent = `${qtd} produtos selecionados`;
+            }
+        }
+
+        // ===== RENDERIZAÇÃO DE PRODUTOS (COM DRAG & DROP) =====
+        function renderizarProdutos() {
+            const container = document.getElementById('produtosSelecionados');
+            container.innerHTML = '';
+
+            produtosSelecionados.forEach((produto, index) => {
+                const card = document.createElement('div');
+                card.className = 'produto-card produto-item';
+                card.draggable = true;
+                card.dataset.index = index;
+                
+                card.innerHTML = `
+                    <button type="button" class="btn-remover" onclick="removerProduto(${index})">×</button>
+                    <div class="ordem-numero">${index + 1}</div>
+                    <span class="drag-handle" title="Arrastar para reordenar">⋮⋮</span>
+                    <img src="${produto.imagem}" alt="${produto.nome}" onerror="this.src='https://via.placeholder.com/150?text=Sem+Imagem'">
+                    <h3>${produto.nome}</h3>
+                    <div class="info"><strong>SKU:</strong> ${produto.sku}</div>
+                    <div class="info"><strong>EAN:</strong> ${produto.ean || '-'}</div>
+                `;
+                
+                // Event listeners para drag & drop
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragend', handleDragEnd);
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('drop', handleDrop);
+                card.addEventListener('dragleave', handleDragLeave);
+                
+                container.appendChild(card);
+            });
+
+            atualizarContador();
+        }
+
+        // ===== DRAG & DROP HANDLERS =====
+        function handleDragStart(e) {
+            draggedElement = this;
+            draggedIndex = parseInt(this.dataset.index);
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+        }
+        
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.produto-item').forEach(item => {
+                item.classList.remove('drag-over');
             });
         }
+        
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            
+            const targetIndex = parseInt(this.dataset.index);
+            if (targetIndex !== draggedIndex) {
+                this.classList.add('drag-over');
+            }
+            
+            return false;
+        }
+        
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+        
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            const targetIndex = parseInt(this.dataset.index);
+            
+            if (draggedIndex !== targetIndex) {
+                const item = produtosSelecionados.splice(draggedIndex, 1)[0];
+                produtosSelecionados.splice(targetIndex, 0, item);
+                renderizarProdutos();
+                mostrarMensagem(`✓ Produto movido: posição ${draggedIndex + 1} → ${targetIndex + 1}`, 'sucesso');
+            }
+            
+            return false;
+        }
+
+        // ===== BUSCA E SUGESTÕES =====
+        async function buscarSugestoes(termo) {
+            if (!termo) {
+                esconderSugestoes();
+                return;
+            }
+
+            const isNumerico = /^\d+$/.test(termo);
+            const minCaracteres = isNumerico ? 1 : 2;
+
+            if (termo.length < minCaracteres) {
+                esconderSugestoes();
+                return;
+            }
+
+            try {
+                const response = await fetch('/buscar-sugestoes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ termo })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.sugestoes.length > 0) {
+                    mostrarSugestoes(data.sugestoes);
+                } else {
+                    mostrarSemResultados();
+                }
+            } catch (error) {
+                console.error('Erro ao buscar sugestões:', error);
+                mostrarMensagem('Erro ao buscar produtos', 'erro');
+                esconderSugestoes();
+            }
+        }
+
+        function mostrarSugestoes(sugestoes) {
+            const dropdown = document.getElementById('sugestoesDropdown');
+            dropdown.innerHTML = '';
+
+            sugestoes.forEach(produto => {
+                const item = document.createElement('div');
+                item.className = 'sugestao-item';
+                item.innerHTML = `
+                    <img src="${produto.imagem}" alt="${produto.nome}" onerror="this.src='https://via.placeholder.com/50?text=?'">
+                    <div class="sugestao-info">
+                        <div class="sugestao-nome">${produto.nome}</div>
+                        <div class="sugestao-detalhes">SKU: ${produto.sku} | EAN: ${produto.ean}</div>
+                    </div>
+                `;
+                item.onclick = () => selecionarProduto(produto);
+                dropdown.appendChild(item);
+            });
+
+            dropdown.classList.add('show');
+        }
+
+        function mostrarSemResultados() {
+            const dropdown = document.getElementById('sugestoesDropdown');
+            dropdown.innerHTML = '<div class="sem-resultados">Nenhum produto encontrado</div>';
+            dropdown.classList.add('show');
+        }
+
+        function esconderSugestoes() {
+            const dropdown = document.getElementById('sugestoesDropdown');
+            dropdown.classList.remove('show');
+        }
+
+        function selecionarProduto(produto) {
+            const jaAdicionado = produtosSelecionados.some(p => p.url === produto.url);
+            
+            if (jaAdicionado) {
+                mostrarMensagem('⚠ Este produto já foi adicionado', 'erro');
+                esconderSugestoes();
+                document.getElementById('termoBusca').value = '';
+                return;
+            }
+
+            produtosSelecionados.push(produto);
+            renderizarProdutos();
+            document.getElementById('termoBusca').value = '';
+            esconderSugestoes();
+            mostrarMensagem('✓ Produto adicionado com sucesso!', 'sucesso');
+        }
+
+        // ===== ADICIONAR POR URL =====
+        async function adicionarProdutoPorUrl() {
+            const termo = document.getElementById('termoBusca').value.trim();
+            
+            if (!termo) {
+                mostrarMensagem('⚠ Digite um SKU, EAN ou URL', 'erro');
+                return;
+            }
+
+            if (termo.startsWith('http')) {
+                try {
+                    const response = await fetch('/buscar-produto', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ termo })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        const jaAdicionado = produtosSelecionados.some(p => p.url === data.produto.url);
+                        
+                        if (jaAdicionado) {
+                            mostrarMensagem('⚠ Este produto já foi adicionado', 'erro');
+                            return;
+                        }
+
+                        produtosSelecionados.push(data.produto);
+                        renderizarProdutos();
+                        document.getElementById('termoBusca').value = '';
+                        esconderSugestoes();
+                        mostrarMensagem('✓ Produto adicionado com sucesso!', 'sucesso');
+                    } else {
+                        mostrarMensagem(data.error || '✗ Produto não encontrado', 'erro');
+                    }
+                } catch (error) {
+                    mostrarMensagem('✗ Erro ao buscar produto', 'erro');
+                    console.error('Erro na busca:', error);
+                }
+            } else {
+                mostrarMensagem('ℹ Use as sugestões ou cole uma URL completa', 'info');
+            }
+        }
+
+        function removerProduto(index) {
+            const nomeProduto = produtosSelecionados[index].nome;
+            produtosSelecionados.splice(index, 1);
+            renderizarProdutos();
+            mostrarMensagem(`✓ Produto removido: ${nomeProduto.substring(0, 40)}...`, 'sucesso');
+        }
+
+        // ===== EVENT LISTENERS =====
+        document.getElementById('termoBusca').addEventListener('input', function(e) {
+            const termo = e.target.value.trim();
+            
+            if (timeoutBusca) {
+                clearTimeout(timeoutBusca);
+            }
+
+            timeoutBusca = setTimeout(() => {
+                buscarSugestoes(termo);
+            }, 100);
+        });
+
+        document.addEventListener('click', function(e) {
+            const searchBox = document.querySelector('.search-box');
+            if (!searchBox.contains(e.target)) {
+                esconderSugestoes();
+            }
+        });
+
+        document.getElementById('termoBusca').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const termo = e.target.value.trim();
+                if (termo.startsWith('http')) {
+                    adicionarProdutoPorUrl();
+                }
+            }
+        });
+
+        // ===== SUBMIT DO FORMULÁRIO =====
+        document.getElementById('formGerador').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (produtosSelecionados.length === 0) {
+                mostrarMensagem('⚠ Adicione pelo menos um produto', 'erro');
+                return;
+            }
+
+            const loading = document.getElementById('loading');
+            const btnGerar = document.getElementById('btnGerar');
+            
+            // Mostra o loading com classe 'show'
+            loading.classList.add('show');
+            btnGerar.disabled = true;
+
+            const dados = {
+                produtos: produtosSelecionados,
+                utm_source: document.getElementById('utm_source').value,
+                utm_campaign: document.getElementById('utm_campaign').value,
+                componente_bloco_03: document.getElementById('componente_bloco_03').value,
+                componente_bloco_05: document.getElementById('componente_bloco_05').value
+            };
+
+            try {
+                const response = await fetch('/gerar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(dados)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Erro HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    mostrarMensagem('✓ Email gerado com sucesso!', 'sucesso');
+                    setTimeout(() => {
+                        sessionStorage.setItem('emailGerado', result.html);
+                        window.location.href = '/resultado';
+                    }, 1000);
+                } else {
+                    mostrarMensagem(result.error || '✗ Erro ao gerar email', 'erro');
+                }
+            } catch (error) {
+                console.error('Erro completo:', error);
+                mostrarMensagem(`✗ ${error.message}`, 'erro');
+            } finally {
+                // Remove o loading com classe 'show'
+                loading.classList.remove('show');
+                btnGerar.disabled = false;
+            }
+        });
     </script>
 </body>
 </html>

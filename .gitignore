@@ -1,0 +1,4 @@
+# Credenciais e segredos
+*.json
+credentials*.json
+*.pem
