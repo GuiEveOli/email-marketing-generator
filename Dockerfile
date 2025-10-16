@@ -14,14 +14,19 @@ RUN apt-get update && apt-get install -y \
     rm google-chrome-stable_current_amd64.deb
 
 # 4. Copie o arquivo de dependências e instale as bibliotecas Python
-COPY requirements.txt requirements.txt
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 5. Copie o resto dos arquivos do seu aplicativo para o contêiner
 COPY . .
 
 # 6. Exponha a porta em que o aplicativo será executado
-EXPOSE 10000
+ENV PORT=8000
+EXPOSE 8000
 
 # 7. Comando para iniciar o aplicativo usando Gunicorn
-CMD ["gunicorn", "--workers=2", "--bind", "0.0.0.0:10000", "app:app"]
+# garanta que requirements.txt inclui gunicorn
+RUN pip install --no-cache-dir -r requirements.txt
+
+# use shell para expandir $PORT
+CMD ["sh", "-c", "gunicorn app:app --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120"]

@@ -5,3 +5,4 @@ webdriver-manager
 requests
 gspread
 google-auth
+gunicorn>=21,<24
