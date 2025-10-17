@@ -11,7 +11,7 @@
 {# 3. Inclui o bloco de categorias dinamicamente #}
 {# A variável 'componente_bloco_03' será passada pelo Python (app.py) #}
 {% if componente_bloco_03 %}
-    {% include componente_bloco_03 %}
+    {% include 'components/' ~ componente_bloco_03 ~ '.html' %}
 {% endif %}
 <!-- Fim | Banners Pré Produto -->
 
@@ -28,7 +28,7 @@
 {# 5. Inclui o bloco de banner full (opcional) #}
 {# A variável 'componente_bloco_05' será passada pelo Python #}
 {% if componente_bloco_05 %}
-    {% include componente_bloco_05 %}
+    {% include 'components/' ~ componente_bloco_05 ~ '.html' %}
 {% endif %}
 <!-- Fim | Banner Pós Produto -->
 

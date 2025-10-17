@@ -84,6 +84,8 @@
                         <label for="componente_bloco_03">Banners Pré Produtos</label>
                         <select id="componente_bloco_03" name="componente_bloco_03">
                             <option value="">Nenhum</option>
+                            <option value="bloco_03_categorias_1x1">1x1</option>
+                            <option value="bloco_03_categorias_1x2">1x2</option>
                             <option value="bloco_03_categorias_2_colunas">2x1</option>
                         </select>
                     </div>
@@ -372,7 +374,7 @@
             const jaAdicionado = produtosSelecionados.some(p => p.url === produto.url);
             
             if (jaAdicionado) {
-                mostrarMensagem('⚠ Este produto já foi adicionado', 'erro');
+                mostrarMensagem('Este produto já foi adicionado', 'erro');
                 esconderSugestoes();
                 document.getElementById('termoBusca').value = '';
                 return;
@@ -382,7 +384,7 @@
             renderizarProdutos();
             document.getElementById('termoBusca').value = '';
             esconderSugestoes();
-            mostrarMensagem('✓ Produto adicionado com sucesso!', 'sucesso');
+            mostrarMensagem('Produto adicionado com sucesso!', 'sucesso');
         }
 
         // ===== ADICIONAR POR URL =====
@@ -390,7 +392,7 @@
             const termo = document.getElementById('termoBusca').value.trim();
             
             if (!termo) {
-                mostrarMensagem('⚠ Digite um SKU, EAN ou URL', 'erro');
+                mostrarMensagem('Digite um SKU, EAN ou URL', 'erro');
                 return;
             }
 
@@ -410,7 +412,7 @@
                         const jaAdicionado = produtosSelecionados.some(p => p.url === data.produto.url);
                         
                         if (jaAdicionado) {
-                            mostrarMensagem('⚠ Este produto já foi adicionado', 'erro');
+                            mostrarMensagem('Este produto já foi adicionado', 'erro');
                             return;
                         }
 
@@ -418,16 +420,16 @@
                         renderizarProdutos();
                         document.getElementById('termoBusca').value = '';
                         esconderSugestoes();
-                        mostrarMensagem('✓ Produto adicionado com sucesso!', 'sucesso');
+                        mostrarMensagem('Produto adicionado com sucesso!', 'sucesso');
                     } else {
                         mostrarMensagem(data.error || '✗ Produto não encontrado', 'erro');
                     }
                 } catch (error) {
-                    mostrarMensagem('✗ Erro ao buscar produto', 'erro');
+                    mostrarMensagem('Erro ao buscar produto', 'erro');
                     console.error('Erro na busca:', error);
                 }
             } else {
-                mostrarMensagem('ℹ Use as sugestões ou cole uma URL completa', 'info');
+                mostrarMensagem('Use as sugestões ou cole uma URL completa', 'info');
             }
         }
 
@@ -435,7 +437,7 @@
             const nomeProduto = produtosSelecionados[index].nome;
             produtosSelecionados.splice(index, 1);
             renderizarProdutos();
-            mostrarMensagem(`✓ Produto removido: ${nomeProduto.substring(0, 40)}...`, 'sucesso');
+            mostrarMensagem(`Produto removido: ${nomeProduto.substring(0, 40)}...`, 'sucesso');
         }
 
         // ===== EVENT LISTENERS =====
@@ -473,14 +475,14 @@
             e.preventDefault();
 
             if (produtosSelecionados.length === 0) {
-                mostrarMensagem('⚠ Adicione pelo menos um produto', 'erro');
+                mostrarMensagem('Adicione pelo menos um produto', 'erro');
                 return;
             }
 
             // Valida cor do botão
             const corBotao = document.getElementById('cor_botao_hex').value.trim();
             if (!/^#[0-9A-Fa-f]{6}$/.test(corBotao)) {
-                mostrarMensagem('⚠ Cor do botão inválida. Use formato hexadecimal (#RRGGBB)', 'erro');
+                mostrarMensagem('Cor do botão inválida. Use formato hexadecimal (#RRGGBB)', 'erro');
                 document.getElementById('cor_botao_hex').focus();
                 return;
             }
@@ -527,13 +529,13 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    mostrarMensagem('✓ Email gerado com sucesso!', 'sucesso');
+                    mostrarMensagem('Email gerado com sucesso!', 'sucesso');
                     setTimeout(() => {
                         sessionStorage.setItem('emailGerado', result.html);
                         window.location.href = '/resultado';
                     }, 1000);
                 } else {
-                    mostrarMensagem(result.error || '✗ Erro ao gerar email', 'erro');
+                    mostrarMensagem(result.error || 'Erro ao gerar email', 'erro');
                 }
             } catch (error) {
                 console.error('Erro completo:', error);
