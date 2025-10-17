@@ -264,10 +264,13 @@ def adicionar_utm_na_url(url_original, utm_source, utm_medium, utm_campaign):
     return f"{url_original}{separador}{utm_params}"
 
 # --- LÓGICA DE BUSCA DE PRODUTOS ---
-def buscar_produtos(urls, template_base_html, utm_source="email-mkt", utm_campaign="cupom+15+novo+site"):
+def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", utm_campaign="cupom+15+novo+site", cor_botao="#ff0000"):
     """
-    Recebe URLs e o HTML do template já montado,
-    e insere apenas o grid de produtos.
+    Recebe lista de dicionários com URLs e flags is_clube/is_exclusivo,
+    e insere o grid de produtos com selo apropriado.
+    
+    Args:
+        cor_botao: Cor hexadecimal do botão "Ver Produto" (padrão: #ff0000)
     """
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -286,14 +289,26 @@ def buscar_produtos(urls, template_base_html, utm_source="email-mkt", utm_campai
     todos_os_produtos_html = []
     contador_produto = 0
     
-    for url in urls:
-        if not url.strip():
+    for produto_info in produtos_info:
+        url = produto_info.get('url', '').strip()
+        is_clube = produto_info.get('is_clube', False)
+        is_exclusivo = produto_info.get('is_exclusivo', False)
+        
+        if not url:
             continue
         
         contador_produto += 1
-        print(f"Processando URL {contador_produto}: {url.split('/')[-1]}")
         
-        # Adiciona um limite de segurança
+        # Monta os badges para log
+        badges = []
+        if is_clube:
+            badges.append('[CLUBE]')
+        if is_exclusivo:
+            badges.append('[EXCLUSIVO]')
+        badges_str = ' '.join(badges) if badges else ''
+        
+        print(f"Processando URL {contador_produto}: {url.split('/')[-1]} {badges_str}")
+        
         if contador_produto > 50:
             print(f"Limite de 50 produtos atingido. Parando processamento.")
             break
@@ -333,15 +348,103 @@ def buscar_produtos(urls, template_base_html, utm_source="email-mkt", utm_campai
             utm_medium_automatico = f"produto {contador_produto:02d}"
             url_com_utm = adicionar_utm_na_url(url, utm_source, utm_medium_automatico, utm_campaign)
 
-            html_bloco_desconto = ""
+            # Define o selo baseado no tipo de produto (ordem de prioridade)
             html_selo_oferta = ""
-            if porcentagem_desconto > 0:
+            if is_clube:
+                # Selo CLUBE (azul) - prioridade 1
+                html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #cce0ff; color: #034abb; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Clube</span></td></tr>'
+            elif is_exclusivo:
+                # Selo EXCLUSIVO SITE (azul escuro) - prioridade 2
+                html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #bccdee; color: #122447; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Exclusivo Site</span></td></tr>'
+            elif porcentagem_desconto > 0:
+                # Selo OFERTA (vermelho) - prioridade 3
                 html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Oferta</span></td></tr>'
+
+            html_bloco_desconto = ""
+            if porcentagem_desconto > 0:
                 html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
 
-            template_produto = f"""<div class="column" style="display: inline-block; width: 50%; max-width: 300px; vertical-align: top; box-sizing: border-box; padding: 4px;">
-                <table class="product-card-table" width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; padding: 12px; text-align: left; height: 172px; box-sizing: border-box;">
-                    <tbody><tr><td class="product-image-cell" valign="top" align="center" style="width: 120px;"><table width="100%" border="0" cellpadding="0" cellspacing="0"><tbody>{html_selo_oferta}<tr><td align="center" valign="top"><a target="_blank" href="{url_com_utm}"><img alt="{nome_produto}" style="display: block; margin: 0px auto; max-width: 120px;" src="{url_imagem}" /></a></td></tr></tbody></table></td><td class="product-info-cell" valign="top" align="left" style="text-align:left; padding:12px 0 0 12px;"><table width="100%" border="0" cellpadding="0" cellspacing="0"><tbody><tr><td style="font-size: 12px; font-weight: 700; color: #212529; font-family: 'Roboto', Arial, sans-serif; padding-bottom: 12px; height: 48px; vertical-align: top;">{nome_produto}</td></tr>{html_bloco_desconto}<tr><td style="font-size: 16px; font-weight: 700; color: #212529; font-family: 'Roboto', Arial, sans-serif; padding-bottom: 12px;">R$ {preco_por_formatado}</td></tr><tr><td><a target="_blank" style="background-color:#ff0000;border-radius:50px;color:#ffffff;display:block;font-family:'Roboto', Arial, sans-serif;font-size:12px;font-weight:bold;height:28px;line-height:28px;text-align:center;text-decoration:none;width:100%;-webkit-text-size-adjust:none;" href="{url_com_utm}">Ver Produto</a></td></tr></tbody></table></td></tr></tbody></table></div>"""
+            template_produto = f"""
+<!-- Início | Produto -->
+<div class="column" style="display: inline-block; width: 50%; max-width: 300px; vertical-align: top; box-sizing: border-box; padding: 4px;">
+    <table class="product-card-table" width="100%" border="0" cellpadding="0" cellspacing="0" 
+           style="background-color: #ffffff; border-radius: 16px; padding: 12px; text-align: left; height: 172px; box-sizing: border-box;">
+        <tbody>
+            <tr>
+                <!-- Coluna da Imagem -->
+                <td class="product-image-cell" valign="top" align="center" style="width: 120px;">
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                        <tbody>
+                            {html_selo_oferta}
+                            <tr>
+                                <td align="center" valign="top">
+                                    <a target="_blank" href="{url_com_utm}">
+                                        <img alt="{nome_produto}" 
+                                             style="display: block; margin: 0px auto; max-width: 120px;" 
+                                             src="{url_imagem}" />
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+                
+                <!-- Coluna das Informações -->
+                <td class="product-info-cell" valign="top" align="left" 
+                    style="text-align:left; padding:12px 0 0 12px;">
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                        <tbody>
+                            <!-- Nome do Produto -->
+                            <tr>
+                                <td style="font-size: 12px; font-weight: 700; color: #212529; 
+                                           font-family: 'Roboto', Arial, sans-serif; padding-bottom: 12px; 
+                                           height: 48px; vertical-align: top;">
+                                    {nome_produto}
+                                </td>
+                            </tr>
+                            
+                            <!-- Bloco de Desconto (se houver) -->
+                            {html_bloco_desconto}
+                            
+                            <!-- Preço -->
+                            <tr>
+                                <td style="font-size: 16px; font-weight: 700; color: #212529; 
+                                           font-family: 'Roboto', Arial, sans-serif; padding-bottom: 12px;">
+                                    R$ {preco_por_formatado}
+                                </td>
+                            </tr>
+                            
+                            <!-- Botão Ver Produto -->
+                            <tr>
+                                <td>
+                                    <a target="_blank" 
+                                       style="background-color:{cor_botao};
+                                              border-radius:50px;
+                                              color:#ffffff;
+                                              display:block;
+                                              font-family:'Roboto', Arial, sans-serif;
+                                              font-size:12px;
+                                              font-weight:bold;
+                                              height:28px;
+                                              line-height:28px;
+                                              text-align:center;
+                                              text-decoration:none;
+                                              width:100%;
+                                              -webkit-text-size-adjust:none;" 
+                                       href="{url_com_utm}">
+                                        Ver Produto
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<!-- Fim | Produto -->
+"""
             todos_os_produtos_html.append(template_produto)
             
             print(f"Produto {contador_produto} processado com sucesso: {nome_produto}")
@@ -356,7 +459,6 @@ def buscar_produtos(urls, template_base_html, utm_source="email-mkt", utm_campai
 
     html_final_dos_produtos = '\n'.join(todos_os_produtos_html)
     
-    # Verifica se o placeholder existe no template
     if '{{PRODUTOS_PLACEHOLDER}}' in template_base_html:
         email_final_html = template_base_html.replace('{{PRODUTOS_PLACEHOLDER}}', html_final_dos_produtos)
     elif '<!-- PRODUTOS -->' in template_base_html:
@@ -364,10 +466,7 @@ def buscar_produtos(urls, template_base_html, utm_source="email-mkt", utm_campai
     elif '<!-- PRODUTOS_AQUI -->' in template_base_html:
         email_final_html = template_base_html.replace('<!-- PRODUTOS_AQUI -->', html_final_dos_produtos)
     else:
-        # Debug: mostra onde deveria estar o placeholder
         print("AVISO: Nenhum placeholder encontrado no template!")
-        print("Procurando por: '{{PRODUTOS_PLACEHOLDER}}', '<!-- PRODUTOS -->' ou '<!-- PRODUTOS_AQUI -->'")
-        print("Adicionando produtos no final do template...")
         email_final_html = template_base_html + html_final_dos_produtos
 
     return email_final_html
@@ -469,7 +568,6 @@ def buscar_produto_api():
 @app.route('/gerar', methods=['POST'])
 def gerar_email():
     try:
-        # Pega os dados do formulário (agora vem como JSON com lista de produtos)
         data = request.get_json()
         
         if not data:
@@ -488,20 +586,24 @@ def gerar_email():
                 'error': 'Nenhum produto selecionado'
             }), 400
         
-        lista_urls = [p['url'] for p in produtos_selecionados]
-        
         utm_source = data.get('utm_source', 'email-mkt')
         utm_campaign = data.get('utm_campaign', 'sem-campanha')
         bloco_03_selecionado = data.get('componente_bloco_03')
         bloco_05_selecionado = data.get('componente_bloco_05')
+        cor_botao = data.get('cor_botao', '#ff0000')
+        
+        # Valida formato hexadecimal
+        if not re.match(r'^#[0-9A-Fa-f]{6}$', cor_botao):
+            return jsonify({
+                'success': False,
+                'error': 'Cor do botão inválida. Use formato hexadecimal (#RRGGBB)'
+            }), 400
 
-        print(f"✓ Recebidos {len(lista_urls)} produtos para processar.")
+        print(f"✓ Recebidos {len(produtos_selecionados)} produtos para processar.")
         print(f"✓ UTM Source: {utm_source}")
         print(f"✓ UTM Campaign: {utm_campaign}")
-        print(f"✓ Componente Bloco 03: {bloco_03_selecionado}")
-        print(f"✓ Componente Bloco 05: {bloco_05_selecionado}")
+        print(f"✓ Cor do botão: {cor_botao}")
         
-        # Renderiza o template base
         print("→ Renderizando template base...")
         template_para_produtos = render_template(
             'email_layout.html', 
@@ -509,19 +611,17 @@ def gerar_email():
             componente_bloco_05=bloco_05_selecionado
         )
         
-        # Busca os produtos
         print("→ Iniciando busca de produtos...")
         html_gerado = buscar_produtos(
-            lista_urls, 
+            produtos_selecionados,
             template_para_produtos, 
             utm_source, 
-            utm_campaign
+            utm_campaign,
+            cor_botao
         )
         
         print("✓ Email gerado com sucesso!")
         
-        # Salva o HTML gerado na sessão ou retorna URL para resultado
-        # Vamos retornar o HTML diretamente para o frontend redirecionar
         return jsonify({
             'success': True,
             'redirect': '/resultado',
@@ -531,7 +631,7 @@ def gerar_email():
     except Exception as e:
         print(f"✗ ERRO CRÍTICO na rota /gerar: {str(e)}")
         import traceback
-        print(traceback.format_exc())
+        traceback.print_exc()
         
         return jsonify({
             'success': False,

@@ -4,498 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerador de Email Marketing</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 2em;
-        }
-
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 1.1em;
-        }
-
-        .search-section {
-            margin-bottom: 30px;
-        }
-
-        .search-box {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-            position: relative;
-        }
-
-        #termoBusca {
-            flex: 1;
-            padding: 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        #termoBusca:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .btn-adicionar {
-            padding: 15px 30px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            transition: background 0.3s;
-        }
-
-        .btn-adicionar:hover {
-            background: #5568d3;
-        }
-
-        /* Dropdown de sugestões */
-        .sugestoes-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 80px;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-top: none;
-            border-radius: 0 0 10px 10px;
-            max-height: 400px;
-            overflow-y: auto;
-            z-index: 1000;
-            display: none;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-
-        .sugestoes-dropdown.show {
-            display: block;
-        }
-
-        .sugestao-item {
-            padding: 12px 15px;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-            transition: background 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .sugestao-item:hover {
-            background: #f8f9fa;
-        }
-
-        .sugestao-item:last-child {
-            border-bottom: none;
-        }
-
-        .sugestao-item img {
-            width: 50px;
-            height: 50px;
-            object-fit: cover;
-            border-radius: 6px;
-        }
-
-        .sugestao-info {
-            flex: 1;
-        }
-
-        .sugestao-nome {
-            font-weight: 600;
-            color: #333;
-            font-size: 14px;
-            margin-bottom: 4px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .sugestao-detalhes {
-            font-size: 12px;
-            color: #666;
-        }
-
-        .sem-resultados {
-            padding: 20px;
-            text-align: center;
-            color: #999;
-            font-size: 14px;
-        }
-
-        .produtos-selecionados {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-            min-height: 100px;
-        }
-
-        .produto-card {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 15px;
-            position: relative;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .produto-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        .produto-card img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
-        .produto-card h3 {
-            font-size: 14px;
-            color: #333;
-            margin-bottom: 5px;
-            height: 40px;
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-        }
-
-        .produto-card .info {
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 3px;
-        }
-
-        .btn-remover {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            cursor: pointer;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.3s;
-        }
-
-        .btn-remover:hover {
-            background: #c82333;
-        }
-
-        .form-group {
-            margin-bottom: 25px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        input[type="text"], select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 16px;
-        }
-
-        select {
-            cursor: pointer;
-        }
-
-        .btn-gerar {
-            width: 100%;
-            padding: 18px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 18px;
-            font-weight: bold;
-            transition: transform 0.2s;
-        }
-
-        .btn-gerar:hover {
-            transform: scale(1.02);
-        }
-
-        .btn-gerar:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .mensagem {
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .mensagem.erro {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .mensagem.sucesso {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        /* Sistema de notificações toast */
-        .toast-container {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            align-items: center;
-            pointer-events: none;
-        }
-
-        .toast {
-            background: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 300px;
-            max-width: 500px;
-            animation: slideUp 0.3s ease-out;
-            pointer-events: auto;
-            font-size: 15px;
-            font-weight: 500;
-        }
-
-        .toast.hide {
-            animation: slideDown 0.3s ease-out forwards;
-        }
-
-        .toast.sucesso {
-            border-left: 4px solid #28a745;
-        }
-
-        .toast.sucesso .toast-icon {
-            color: #28a745;
-            font-size: 24px;
-        }
-
-        .toast.erro {
-            border-left: 4px solid #dc3545;
-        }
-
-        .toast.erro .toast-icon {
-            color: #dc3545;
-            font-size: 24px;
-        }
-
-        .toast.info {
-            border-left: 4px solid #17a2b8;
-        }
-
-        .toast.info .toast-icon {
-            color: #17a2b8;
-            font-size: 24px;
-        }
-
-        .toast-icon {
-            flex-shrink: 0;
-            font-weight: bold;
-        }
-
-        .toast-message {
-            flex: 1;
-            color: #333;
-        }
-
-        .toast-close {
-            background: none;
-            border: none;
-            color: #999;
-            cursor: pointer;
-            font-size: 20px;
-            padding: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-
-        .toast-close:hover {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        /* Loading overlay */
-        .loading {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 10000;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }
-
-        .loading.show {
-            display: flex;
-        }
-
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 6px solid rgba(255, 255, 255, 0.3);
-            border-top: 6px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        .loading p {
-            color: white;
-            font-size: 18px;
-            font-weight: 600;
-            margin: 0;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 1;
-                transform: translateY(0);
-            }
-            to {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-        }
-
-        .contador-produtos {
-            text-align: center;
-            padding: 15px;
-            background: #e7f3ff;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-weight: 600;
-            color: #0066cc;
-        }
-
-        /* Estilos para drag & drop */
-        .produto-item {
-            cursor: move;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-        
-        .produto-item.dragging {
-            opacity: 0.5;
-            transform: scale(0.95);
-        }
-        
-        .produto-item.drag-over {
-            border-top: 3px solid #007bff;
-            padding-top: 8px;
-        }
-        
-        .produto-item .drag-handle {
-            display: inline-block;
-            width: 24px;
-            height: 24px;
-            margin-right: 8px;
-            cursor: grab;
-            color: #6c757d;
-            vertical-align: middle;
-        }
-        
-        .produto-item .drag-handle:active {
-            cursor: grabbing;
-        }
-        
-        .produto-item .ordem-numero {
-            display: inline-block;
-            width: 28px;
-            height: 28px;
-            line-height: 28px;
-            text-align: center;
-            background-color: #007bff;
-            color: white;
-            border-radius: 50%;
-            font-weight: bold;
-            font-size: 14px;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-    </style>
 </head>
 <body>
     <!-- Loading overlay -->
@@ -508,13 +18,13 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <div class="container">
-        <h1>🎨 Gerador de Email Marketing</h1>
+        <h1>Gerador de Email Marketing</h1>
         <p class="subtitle">Adicione produtos por URL, SKU ou EAN</p>
 
         <form id="formGerador">
-            <!-- Seção de Busca e Produtos -->
+            <!-- Seção de Busca e Produtos (ESQUERDA) -->
             <div class="search-section">
-                <label>1. Buscar e Adicionar Produtos</label>
+                <h2>1. Buscar e Adicionar Produtos</h2>
                 <div class="search-box">
                     <input 
                         type="text" 
@@ -526,7 +36,7 @@
                         <!-- Sugestões aparecerão aqui -->
                     </div>
                     <button type="button" class="btn-adicionar" onclick="adicionarProdutoPorUrl()">
-                        ➕ Adicionar
+                        + Adicionar
                     </button>
                 </div>
                 
@@ -539,46 +49,70 @@
                 </div>
             </div>
 
-            <!-- Campos UTM -->
-            <div class="form-group">
-                <label>2. Configurações UTM</label>
-                <input 
-                    type="text" 
-                    name="utm_source" 
-                    id="utm_source" 
-                    placeholder="ex: email-mkt"
-                    value="email-mkt"
-                >
+            <!-- Seção de Configurações (DIREITA) -->
+            <div class="config-section">
+                <!-- Configuração de UTM -->
+                <div class="config-group">
+                    <h2>2. Configuração de UTM</h2>
+                    <div class="form-group">
+                        <label>Fonte da Campanha</label>
+                        <input 
+                            type="text" 
+                            name="utm_source" 
+                            id="utm_source" 
+                            placeholder="ex: email-mkt, social media..."
+                            value="email-mkt"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nome da campanha</label>
+                        <input 
+                            type="text" 
+                            name="utm_campaign" 
+                            id="utm_campaign" 
+                            placeholder="ex: promo-verao, super barato..."
+                            value=""
+                        >
+                    </div>
+                </div>
+
+                <!-- Seleção de Componentes -->
+                <div class="config-group">
+                    <h2>3. Seleção de Componentes</h2>
+                    <div class="form-group">
+                        <label for="componente_bloco_03">Banners Pré Produtos</label>
+                        <select id="componente_bloco_03" name="componente_bloco_03">
+                            <option value="">Nenhum</option>
+                            <option value="bloco_03_categorias_2_colunas">2x1</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="componente_bloco_05">Banners Pós Produtos</label>
+                        <select id="componente_bloco_05" name="componente_bloco_05">
+                            <option value="">Nenhum</option>
+                            <option value="bloco_05_banner_full">1x1</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Personalização -->
+                <div class="config-group">
+                    <h2>4. Personalização</h2>
+                    <div class="form-group">
+                        <label for="cor_botao">Cor do Botão "Ver Produto":</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="color" id="cor_botao_picker" value="#122447" style="width: 60px; height: 40px; cursor: pointer; border: 2px solid #e0e0e0; border-radius: 8px; padding: 4px 8px;">
+                            <input type="text" id="cor_botao_hex" value="#122447" placeholder="#122447" maxlength="7" style="flex: 1; text-transform: uppercase;" pattern="^#[0-9A-Fa-f]{6}$">
+                            <button type="button" id="btn_resetar_cor" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">Resetar</button>
+                        </div>
+                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">Escolha a cor do botão usando o seletor ou digite o código hexadecimal</small>
+                    </div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label>Campanha UTM</label>
-                <input 
-                    type="text" 
-                    name="utm_campaign" 
-                    id="utm_campaign" 
-                    placeholder="ex: promo-verao"
-                    value=""
-                >
-            </div>
-
-            <!-- Seleção de Componentes -->
-            <div class="form-group">
-                <label>3. Componente Bloco 03</label>
-                <select name="componente_bloco_03" id="componente_bloco_03">
-                    <option value="">Nenhum</option>
-                    <option value="components/bloco_03_categorias_2_colunas.html">Categorias 2 Colunas</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>4. Componente Bloco 05</label>
-                <select name="componente_bloco_05" id="componente_bloco_05">
-                    <option value="">Nenhum</option>
-                    <option value="components/bloco_05_banner.html">Banner</option>
-                </select>
-            </div>
-
+            <!-- Botão Gerar -->
             <button type="submit" class="btn-gerar" id="btnGerar">
                 🚀 Gerar Email Marketing
             </button>
@@ -592,15 +126,50 @@
         let draggedElement = null;
         let draggedIndex = null;
 
+        // ===== SINCRONIZAÇÃO DO SELETOR DE COR =====
+        const corPicker = document.getElementById('cor_botao_picker');
+        const corHex = document.getElementById('cor_botao_hex');
+        const btnResetar = document.getElementById('btn_resetar_cor');
+
+        // Sincroniza picker -> input text
+        corPicker.addEventListener('input', function() {
+            corHex.value = this.value.toUpperCase();
+        });
+
+        // Sincroniza input text -> picker (com validação)
+        corHex.addEventListener('input', function() {
+            let valor = this.value.trim();
+            
+            // Adiciona # se não tiver
+            if (valor && !valor.startsWith('#')) {
+                valor = '#' + valor;
+                this.value = valor;
+            }
+            
+            // Valida se é hexadecimal válido
+            if (/^#[0-9A-Fa-f]{6}$/.test(valor)) {
+                corPicker.value = valor;
+                this.style.borderColor = '#e0e0e0';
+            } else if (valor.length === 7) {
+                this.style.borderColor = '#dc3545';
+            }
+        });
+
+        // Botão resetar
+        btnResetar.addEventListener('click', function() {
+            corPicker.value = '#122447';
+            corHex.value = '#122447';
+            corHex.style.borderColor = '#e0e0e0';
+            mostrarMensagem('Cor resetada para o padrão', 'sucesso');
+        });
+
         // ===== SISTEMA DE NOTIFICAÇÕES TOAST =====
         function mostrarMensagem(texto, tipo = 'info') {
             const container = document.getElementById('toastContainer');
             
-            // Cria o elemento toast
             const toast = document.createElement('div');
             toast.className = `toast ${tipo}`;
             
-            // Define o ícone baseado no tipo
             let icone = '✓';
             if (tipo === 'erro') icone = '✕';
             if (tipo === 'info') icone = 'ℹ';
@@ -613,40 +182,23 @@
             
             container.appendChild(toast);
             
-            // Remove automaticamente após 5 segundos
             setTimeout(() => {
-                if (toast.parentElement) {
-                    toast.classList.add('hide');
-                    setTimeout(() => {
-                        if (toast.parentElement) {
-                            toast.remove();
-                        }
-                    }, 300);
-                }
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 300);
             }, 5000);
         }
 
         function fecharToast(button) {
             const toast = button.closest('.toast');
             toast.classList.add('hide');
-            setTimeout(() => {
-                if (toast.parentElement) {
-                    toast.remove();
-                }
-            }, 300);
+            setTimeout(() => toast.remove(), 300);
         }
 
         // ===== FUNÇÕES DE CONTADOR =====
         function atualizarContador() {
             const contador = document.getElementById('contadorProdutos');
-            const qtd = produtosSelecionados.length;
-            
-            if (qtd === 0) {
-                contador.textContent = 'Nenhum produto selecionado';
-            } else if (qtd === 1) {
-                contador.textContent = '1 produto selecionado';
-            } else {
-                contador.textContent = `${qtd} produtos selecionados`;
+            if (contador) {
+                contador.textContent = `${produtosSelecionados.length} produto(s) selecionado(s)`;
             }
         }
 
@@ -669,9 +221,20 @@
                     <h3>${produto.nome}</h3>
                     <div class="info"><strong>SKU:</strong> ${produto.sku}</div>
                     <div class="info"><strong>EAN:</strong> ${produto.ean || '-'}</div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" class="checkbox-clube" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                            <span style="color: #034abb; font-weight: 600;">Produto Clube</span>
+                        </label>
+                        
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" class="checkbox-exclusivo" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                            <span style="color: #122447; font-weight: 600;">Exclusivo Site</span>
+                        </label>
+                    </div>
                 `;
                 
-                // Event listeners para drag & drop
                 card.addEventListener('dragstart', handleDragStart);
                 card.addEventListener('dragend', handleDragEnd);
                 card.addEventListener('dragover', handleDragOver);
@@ -914,19 +477,37 @@
                 return;
             }
 
+            // Valida cor do botão
+            const corBotao = document.getElementById('cor_botao_hex').value.trim();
+            if (!/^#[0-9A-Fa-f]{6}$/.test(corBotao)) {
+                mostrarMensagem('⚠ Cor do botão inválida. Use formato hexadecimal (#RRGGBB)', 'erro');
+                document.getElementById('cor_botao_hex').focus();
+                return;
+            }
+
             const loading = document.getElementById('loading');
             const btnGerar = document.getElementById('btnGerar');
             
-            // Mostra o loading com classe 'show'
             loading.classList.add('show');
             btnGerar.disabled = true;
 
+            const produtosComClube = produtosSelecionados.map((produto, index) => {
+                const checkboxClube = document.querySelector(`.checkbox-clube[data-index="${index}"]`);
+                const checkboxExclusivo = document.querySelector(`.checkbox-exclusivo[data-index="${index}"]`);
+                return {
+                    ...produto,
+                    is_clube: checkboxClube ? checkboxClube.checked : false,
+                    is_exclusivo: checkboxExclusivo ? checkboxExclusivo.checked : false
+                };
+            });
+
             const dados = {
-                produtos: produtosSelecionados,
+                produtos: produtosComClube,
                 utm_source: document.getElementById('utm_source').value,
                 utm_campaign: document.getElementById('utm_campaign').value,
                 componente_bloco_03: document.getElementById('componente_bloco_03').value,
-                componente_bloco_05: document.getElementById('componente_bloco_05').value
+                componente_bloco_05: document.getElementById('componente_bloco_05').value,
+                cor_botao: corBotao
             };
 
             try {
@@ -958,7 +539,6 @@
                 console.error('Erro completo:', error);
                 mostrarMensagem(`✗ ${error.message}`, 'erro');
             } finally {
-                // Remove o loading com classe 'show'
                 loading.classList.remove('show');
                 btnGerar.disabled = false;
             }
