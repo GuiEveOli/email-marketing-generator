@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Email Marketing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body class="gerador-page">
+    {% set current = request.path %}
+    <header class="top-nav">
+        <div class="nav-inner">
+            <a href="/" class="brand">🛠️ Ferramentas</a>
+            <nav class="nav-links">
+                <a href="/" class="{% if current == '/' %}active{% endif %}">Hub</a>
+                <a href="/gerador" class="{% if current.startswith('/gerador') %}active{% endif %}">Gerador</a>
+                <a href="/skuconsult" class="{% if current.startswith('/skuconsult') %}active{% endif %}">SKU Consult</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Loading overlay -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Gerando email marketing...</p>
+    </div>
+
+    <!-- Container de toasts -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container">
+        <h1>Gerador de Email Marketing</h1>
+        <p class="subtitle">Adicione produtos por URL, SKU ou EAN</p>
+
+        <form id="formGerador">
+            <!-- Seção de Busca e Produtos (ESQUERDA) -->
+            <div class="search-section">
+                <h2>1. Buscar e Adicionar Produtos</h2>
+                <div class="search-box">
+                    <input 
+                        type="text" 
+                        id="termoBusca" 
+                        placeholder="Digite o SKU, EAN ou nome do produto..."
+                        autocomplete="off"
+                    >
+                    <div class="sugestoes-dropdown" id="sugestoesDropdown">
+                        <!-- Sugestões aparecerão aqui -->
+                    </div>
+                    <button type="button" class="btn-adicionar" onclick="adicionarProdutoPorUrl()">
+                        + Adicionar
+                    </button>
+                </div>
+                
+                <div class="contador-produtos" id="contadorProdutos">
+                    Nenhum produto selecionado
+                </div>
+
+                <div class="produtos-selecionados" id="produtosSelecionados">
+                    <!-- Cards dos produtos aparecerão aqui -->
+                </div>
+            </div>
+
+            <!-- Seção de Configurações (DIREITA) -->
+            <div class="config-section">
+                <!-- Configuração de UTM -->
+                <div class="config-group">
+                    <h2>2. Configuração de UTM</h2>
+                    <div class="form-group">
+                        <label>Fonte da Campanha</label>
+                        <input 
+                            type="text" 
+                            name="utm_source" 
+                            id="utm_source" 
+                            placeholder="ex: email-mkt, social media..."
+                            value="email-mkt"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nome da campanha</label>
+                        <input 
+                            type="text" 
+                            name="utm_campaign" 
+                            id="utm_campaign" 
+                            placeholder="ex: promo-verao, super barato..."
+                            value=""
+                        >
+                    </div>
+                </div>
+
+                <!-- Seleção de Componentes -->
+                <div class="config-group">
+                    <h2>3. Seleção de Componentes</h2>
+                    <div class="form-group">
+                        <label for="componente_bloco_03">Banners Pré Produtos</label>
+                        <select id="componente_bloco_03" name="componente_bloco_03">
+                            <option value="">Nenhum</option>
+                            <option value="bloco_03_categorias_1x1">1x1</option>
+                            <option value="bloco_03_categorias_1x2">1x2</option>
+                            <option value="bloco_03_categorias_2_colunas">2x1</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="componente_bloco_05">Banners Pós Produtos</label>
+                        <select id="componente_bloco_05" name="componente_bloco_05">
+                            <option value="">Nenhum</option>
+                            <option value="bloco_05_banner_full">1x1</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Personalização -->
+                <div class="config-group">
+                    <h2>4. Personalização</h2>
+                    <div class="form-group">
+                        <label for="cor_botao">Cor do Botão "Ver Produto":</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="color" id="cor_botao_picker" value="#122447" style="width: 60px; height: 40px; cursor: pointer; border: 2px solid #e0e0e0; border-radius: 8px; padding: 4px 8px;">
+                            <input type="text" id="cor_botao_hex" value="#122447" placeholder="#122447" maxlength="7" style="flex: 1; text-transform: uppercase;" pattern="^#[0-9A-Fa-f]{6}$">
+                            <button type="button" id="btn_resetar_cor" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">Resetar</button>
+                        </div>
+                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">Escolha a cor do botão usando o seletor ou digite o código hexadecimal</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botão Gerar -->
+            <button type="submit" class="btn-gerar" id="btnGerar">
+                🚀 Gerar Email Marketing
+            </button>
+        </form>
+    </div>
+
+    <script>
+        let produtosSelecionados = [];
+        let timeoutBusca = null;
+        let draggedElement = null;
+        let draggedIndex = null;
+
+        const corPicker = document.getElementById('cor_botao_picker');
+        const corHex = document.getElementById('cor_botao_hex');
+        const btnResetar = document.getElementById('btn_resetar_cor');
+
+        corPicker.addEventListener('input', function() {
+            corHex.value = this.value.toUpperCase();
+        });
+
+        corHex.addEventListener('input', function() {
+            let valor = this.value.trim();
+            
+            if (valor && !valor.startsWith('#')) {
+                valor = '#' + valor;
+                this.value = valor;
+            }
+            
+            if (/^#[0-9A-Fa-f]{6}$/.test(valor)) {
+                corPicker.value = valor;
+                this.style.borderColor = '#e0e0e0';
+            } else if (valor.length === 7) {
+                this.style.borderColor = '#dc3545';
+            }
+        });
+
+        btnResetar.addEventListener('click', function() {
+            corPicker.value = '#122447';
+            corHex.value = '#122447';
+            corHex.style.borderColor = '#e0e0e0';
+            mostrarMensagem('Cor resetada para o padrão', 'sucesso');
+        });
+
+        function mostrarMensagem(texto, tipo = 'info') {
+            const container = document.getElementById('toastContainer');
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${tipo}`;
+            
+            let icone = '✓';
+            if (tipo === 'erro') icone = '✕';
+            if (tipo === 'info') icone = 'ℹ';
+            
+            toast.innerHTML = `
+                <span class="toast-icon">${icone}</span>
+                <span class="toast-message">${texto}</span>
+                <button class="toast-close" onclick="fecharToast(this)">×</button>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        function fecharToast(button) {
+            const toast = button.closest('.toast');
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 300);
+        }
+
+        function atualizarContador() {
+            const contador = document.getElementById('contadorProdutos');
+            if (contador) {
+                contador.textContent = `${produtosSelecionados.length} produto(s) selecionado(s)`;
+            }
+        }
+
+        function renderizarProdutos() {
+            const container = document.getElementById('produtosSelecionados');
+            container.innerHTML = '';
+
+            produtosSelecionados.forEach((produto, index) => {
+                const card = document.createElement('div');
+                card.className = 'produto-card produto-item';
+                card.draggable = true;
+                card.dataset.index = index;
+                
+                card.innerHTML = `
+                    <button type="button" class="btn-remover" onclick="removerProduto(${index})">×</button>
+                    <div class="ordem-numero">${index + 1}</div>
+                    <span class="drag-handle" title="Arrastar para reordenar">⋮⋮</span>
+                    <img src="${produto.imagem}" alt="${produto.nome}" onerror="this.src='https://via.placeholder.com/150?text=Sem+Imagem'">
+                    <h3>${produto.nome}</h3>
+                    <div class="info"><strong>SKU:</strong> ${produto.sku}</div>
+                    <div class="info"><strong>EAN:</strong> ${produto.ean || '-'}</div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" class="checkbox-clube" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                            <span style="color: #034abb; font-weight: 600;">Produto Clube</span>
+                        </label>
+                        
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" class="checkbox-exclusivo" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                            <span style="color: #122447; font-weight: 600;">Exclusivo Site</span>
+                        </label>
+                    </div>
+                `;
+                
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragend', handleDragEnd);
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('drop', handleDrop);
+                card.addEventListener('dragleave', handleDragLeave);
+                
+                container.appendChild(card);
+            });
+
+            atualizarContador();
+        }
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            draggedIndex = parseInt(this.dataset.index);
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+        }
+        
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.produto-item').forEach(item => {
+                item.classList.remove('drag-over');
+            });
+        }
+        
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            
+            const targetIndex = parseInt(this.dataset.index);
+            if (targetIndex !== draggedIndex) {
+                this.classList.add('drag-over');
+            }
+            
+            return false;
+        }
+        
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+        
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            const targetIndex = parseInt(this.dataset.index);
+            
+            if (draggedIndex !== targetIndex) {
+                const item = produtosSelecionados.splice(draggedIndex, 1)[0];
+                produtosSelecionados.splice(targetIndex, 0, item);
+                renderizarProdutos();
+                mostrarMensagem(`✓ Produto movido: posição ${draggedIndex + 1} → ${targetIndex + 1}`, 'sucesso');
+            }
+            
+            return false;
+        }
+
+        async function buscarSugestoes(termo) {
+            if (!termo) {
+                esconderSugestoes();
+                return;
+            }
+
+            const isNumerico = /^\d+$/.test(termo);
+            const minCaracteres = isNumerico ? 1 : 2;
+
+            if (termo.length < minCaracteres) {
+                esconderSugestoes();
+                return;
+            }
+
+            try {
+                const response = await fetch('/buscar-sugestoes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ termo })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.sugestoes.length > 0) {
+                    mostrarSugestoes(data.sugestoes);
+                } else {
+                    mostrarSemResultados();
+                }
+            } catch (error) {
+                console.error('Erro ao buscar sugestões:', error);
+                mostrarMensagem('Erro ao buscar produtos', 'erro');
+                esconderSugestoes();
+            }
+        }
+
+        function mostrarSugestoes(sugestoes) {
+            const dropdown = document.getElementById('sugestoesDropdown');
+            dropdown.innerHTML = '';
+
+            sugestoes.forEach(produto => {
+                const item = document.createElement('div');
+                item.className = 'sugestao-item';
+                item.innerHTML = `
+                    <img src="${produto.imagem}" alt="${produto.nome}" onerror="this.src='https://via.placeholder.com/50?text=?'">
+                    <div class="sugestao-info">
+                        <div class="sugestao-nome">${produto.nome}</div>
+                        <div class="sugestao-detalhes">SKU: ${produto.sku} | EAN: ${produto.ean}</div>
+                    </div>
+                `;
+                item.onclick = () => selecionarProduto(produto);
+                dropdown.appendChild(item);
+            });
+
+            dropdown.classList.add('show');
+        }
+
+        function mostrarSemResultados() {
+            const dropdown = document.getElementById('sugestoesDropdown');
+            dropdown.innerHTML = '<div class="sem-resultados">Nenhum produto encontrado</div>';
+            dropdown.classList.add('show');
+        }
+
+        function esconderSugestoes() {
+            const dropdown = document.getElementById('sugestoesDropdown');
+            dropdown.classList.remove('show');
+        }
+
+        function selecionarProduto(produto) {
+            const jaAdicionado = produtosSelecionados.some(p => p.url === produto.url);
+            
+            if (jaAdicionado) {
+                mostrarMensagem('Este produto já foi adicionado', 'erro');
+                esconderSugestoes();
+                document.getElementById('termoBusca').value = '';
+                return;
+            }
+
+            produtosSelecionados.push(produto);
+            renderizarProdutos();
+            document.getElementById('termoBusca').value = '';
+            esconderSugestoes();
+            mostrarMensagem('Produto adicionado com sucesso!', 'sucesso');
+        }
+
+        async function adicionarProdutoPorUrl() {
+            const termo = document.getElementById('termoBusca').value.trim();
+            
+            if (!termo) {
+                mostrarMensagem('Digite um SKU, EAN ou URL', 'erro');
+                return;
+            }
+
+            if (termo.startsWith('http')) {
+                try {
+                    const response = await fetch('/buscar-produto', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ termo })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        const jaAdicionado = produtosSelecionados.some(p => p.url === data.produto.url);
+                        
+                        if (jaAdicionado) {
+                            mostrarMensagem('Este produto já foi adicionado', 'erro');
+                            return;
+                        }
+
+                        produtosSelecionados.push(data.produto);
+                        renderizarProdutos();
+                        document.getElementById('termoBusca').value = '';
+                        esconderSugestoes();
+                        mostrarMensagem('Produto adicionado com sucesso!', 'sucesso');
+                    } else {
+                        mostrarMensagem(data.error || '✗ Produto não encontrado', 'erro');
+                    }
+                } catch (error) {
+                    mostrarMensagem('Erro ao buscar produto', 'erro');
+                    console.error('Erro na busca:', error);
+                }
+            } else {
+                mostrarMensagem('Use as sugestões ou cole uma URL completa', 'info');
+            }
+        }
+
+        function removerProduto(index) {
+            const nomeProduto = produtosSelecionados[index].nome;
+            produtosSelecionados.splice(index, 1);
+            renderizarProdutos();
+            mostrarMensagem(`Produto removido: ${nomeProduto.substring(0, 40)}...`, 'sucesso');
+        }
+
+        document.getElementById('termoBusca').addEventListener('input', function(e) {
+            const termo = e.target.value.trim();
+            
+            if (timeoutBusca) {
+                clearTimeout(timeoutBusca);
+            }
+
+            timeoutBusca = setTimeout(() => {
+                buscarSugestoes(termo);
+            }, 100);
+        });
+
+        document.addEventListener('click', function(e) {
+            const searchBox = document.querySelector('.search-box');
+            if (!searchBox.contains(e.target)) {
+                esconderSugestoes();
+            }
+        });
+
+        document.getElementById('termoBusca').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const termo = e.target.value.trim();
+                if (termo.startsWith('http')) {
+                    adicionarProdutoPorUrl();
+                }
+            }
+        });
+
+        document.getElementById('formGerador').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (produtosSelecionados.length === 0) {
+                mostrarMensagem('Adicione pelo menos um produto', 'erro');
+                return;
+            }
+
+            const corBotao = document.getElementById('cor_botao_hex').value.trim();
+            if (!/^#[0-9A-Fa-f]{6}$/.test(corBotao)) {
+                mostrarMensagem('Cor do botão inválida. Use formato hexadecimal (#RRGGBB)', 'erro');
+                document.getElementById('cor_botao_hex').focus();
+                return;
+            }
+
+            const loading = document.getElementById('loading');
+            const btnGerar = document.getElementById('btnGerar');
+            
+            loading.classList.add('show');
+            btnGerar.disabled = true;
+
+            const produtosComClube = produtosSelecionados.map((produto, index) => {
+                const checkboxClube = document.querySelector(`.checkbox-clube[data-index="${index}"]`);
+                const checkboxExclusivo = document.querySelector(`.checkbox-exclusivo[data-index="${index}"]`);
+                return {
+                    ...produto,
+                    is_clube: checkboxClube ? checkboxClube.checked : false,
+                    is_exclusivo: checkboxExclusivo ? checkboxExclusivo.checked : false
+                };
+            });
+
+            const dados = {
+                produtos: produtosComClube,
+                utm_source: document.getElementById('utm_source').value,
+                utm_campaign: document.getElementById('utm_campaign').value,
+                componente_bloco_03: document.getElementById('componente_bloco_03').value,
+                componente_bloco_05: document.getElementById('componente_bloco_05').value,
+                cor_botao: corBotao
+            };
+
+            try {
+                const response = await fetch('/gerar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(dados)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Erro HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    mostrarMensagem('Email gerado com sucesso!', 'sucesso');
+                    setTimeout(() => {
+                        sessionStorage.setItem('emailGerado', result.html);
+                        window.location.href = '/resultado';
+                    }, 1000);
+                } else {
+                    mostrarMensagem(result.error || 'Erro ao gerar email', 'erro');
+                }
+            } catch (error) {
+                console.error('Erro completo:', error);
+                mostrarMensagem(`✗ ${error.message}`, 'erro');
+            } finally {
+                loading.classList.remove('show');
+                btnGerar.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

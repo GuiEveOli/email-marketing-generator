@@ -10,7 +10,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 
 # Importa utilitários do Google Sheets
 ler_produtos_via_sheets_csv = None
@@ -362,7 +362,7 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
 
             html_bloco_desconto = ""
             if porcentagem_desconto > 0:
-                html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
+                html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px, font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
 
             template_produto = f"""
 <!-- Início | Produto -->
@@ -475,7 +475,18 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
 
 @app.route('/')
 def index():
+    """Página inicial - Hub de ferramentas"""
     return render_template('index.html')
+
+@app.route('/gerador')
+def gerador():
+    """Página do gerador de email marketing"""
+    return render_template('gerador.html')
+
+@app.route('/skuconsult')
+def skuconsult():
+    """Página de consulta de SKU"""
+    return render_template('skuconsult/index.html')
 
 @app.route('/buscar-sugestoes', methods=['POST'])
 def buscar_sugestoes():
@@ -645,6 +656,38 @@ def resultado():
     """
     # O HTML será passado via POST do frontend
     return render_template('resultado.html')
+
+@app.route('/api/produtos', methods=['GET'])
+def api_produtos():
+    """
+    Retorna todos os produtos em formato JSON para o SKU Consult
+    """
+    try:
+        produtos = carregar_produtos_planilha()
+        
+        # Formata os produtos no formato esperado pelo SKU Consult
+        produtos_formatados = []
+        for p in produtos:
+            produtos_formatados.append({
+                'COD_PRODUTO': p.get('sku', ''),
+                'NOMEPRODUTOECOMM': p.get('nome', ''),
+                'COD_BARRAS': p.get('ean', ''),
+                'URLECOMMERCEIMG': p.get('imagem', ''),
+                'PRODUCTURL': p.get('url', '')
+            })
+        
+        return jsonify({
+            'success': True,
+            'produtos': produtos_formatados,
+            'total': len(produtos_formatados)
+        })
+    except Exception as e:
+        print(f"Erro ao buscar produtos para API: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'produtos': []
+        }), 500
 
 # --- CARREGAMENTO INICIAL DO CACHE ---
 print("\n" + "="*60)

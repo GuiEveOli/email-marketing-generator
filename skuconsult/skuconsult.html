@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Produtos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Favicons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
+    <link rel="mask-icon" href="favicon/safari-pinned-tab.svg" color="#122447">
+    <link rel="manifest" href="favicon/site.webmanifest">
+    <link rel="shortcut icon" href="favicon/favicon.ico">
+    <meta name="theme-color" content="#122447">
+    
+    <style>
+        :root {
+            --primary-color: #122447;
+            --light-gray: #f8f9fa;
+            --gray-border: #dee2e6;
+            --text-color: #3c3e41;
+            --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--light-gray);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+        }
+
+
+        a, a:link, a:visited {
+            color: var(--primary-color); /* cor desejada para links normais e visitados */
+            text-decoration: none;
+        }
+
+        a:hover, a:focus, a:active {
+            color: #0056b3; /* cor ao passar o mouse / foco */
+            text-decoration: none !important;
+        }
+
+        .container {
+            max-width: 1200px; /* Aumentado para comportar a grade */
+            margin: 0 auto;
+            width: 100%;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--primary-color);
+        }
+
+        .search-box {
+            margin-bottom: 2rem;
+        }
+
+        #skuInput {
+            width: 100%;
+            box-sizing: border-box; /* Garante que padding não afete a largura total */
+            padding: 0.75rem;
+            border: 1px solid var(--gray-border);
+            border-radius: 4px;
+            font-size: 1.2rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        #skuInput:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+        
+        #mensagemInfo {
+            text-align: center;
+            font-weight: 500;
+            margin-top: 2.5rem;
+            font-size: 1.1rem;
+        }
+
+        /* --- NOVA ESTRUTURA PARA A LISTA DE PRODUTOS --- */
+        #listaProdutos {
+            display: grid;
+            /* Cria colunas responsivas: elas terão no mínimo 280px de largura */
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+            border-top: 1px solid var(--gray-border);
+            padding-top: 2rem;
+        }
+
+        .produto-card {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--gray-border);
+            border-radius: 8px;
+            overflow: hidden; /* Garante que a imagem não saia do card */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .produto-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--card-shadow);
+        }
+
+        .produto-imagem {
+            width: 100%;
+            height: 250px; /* Altura fixa para a imagem */
+            object-fit: cover;
+            border-bottom: 1px solid var(--gray-border);
+        }
+
+        .produto-info {
+            padding: 1rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .produto-info p {
+            margin: 0 0 0.75rem 0;
+            font-size: 0.9rem;
+            word-wrap: break-word; /* Quebra palavras longas */
+        }
+
+        .produto-info p strong {
+            color: var(--primary-color);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+        
+        .produto-download-btn {
+            margin-top: auto; /* Empurra o botão para o final do card */
+            text-decoration: none;
+            display: block;
+            width: 100%; 
+            box-sizing: border-box;
+        }
+
+        .produto-download-btn button {
+            width: 100%;
+            padding: 0.75rem;
+            font-size: 0.95rem;
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .produto-download-btn button:hover {
+            background-color: #0056b3;
+        }
+
+                /* --- CSS ADICIONADO --- */
+        .nome-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between; /* Alinha o botão à direita */
+            gap: 8px; /* Espaço entre o nome e o botão */
+            margin-bottom: 12px;
+        }
+
+        .nome-container p {
+            margin: 0; /* Remove a margem padrão do <p> */
+        }
+
+        .btn-copiar {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 18px; /* Ajuste o tamanho do ícone se necessário */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            flex-shrink: 0; /* Impede que o botão encolha */
+        }
+
+        .btn-copiar:hover {
+            background-color: #f0f0f0; /* Um leve destaque ao passar o mouse */
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Consulta de Produtos</h1>
+        <div class="search-box">
+            <input 
+                type="text" 
+                id="skuInput" 
+                placeholder="Digite o SKU, EAN ou nome do produto..."
+                autocomplete="off"
+            >
+        </div>
+
+        <div id="listaProdutos"></div>
+        
+        <p id="mensagemInfo" style="text-align: center; margin-top: 2rem; font-size: 1.1rem;">
+            🔄 Carregando produtos do Google Sheets...
+        </p>
+    </div>
+
+    <!-- Remover a referência ao xlsx.full.min.js pois não precisamos mais -->
+    <script src="js/script.js"></script>
+
+</body>
+</html>
