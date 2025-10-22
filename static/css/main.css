@@ -454,130 +454,124 @@ body.gerador-page h2 {
 /* Lista de Produtos Selecionados */
 .produtos-selecionados {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-top: 15px;
-    max-height: 600px;
-    overflow-y: auto;
-    padding-right: 5px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-top: 20px;
 }
 
-/* Scrollbar personalizada */
-.produtos-selecionados::-webkit-scrollbar {
-    width: 8px;
-}
-
-.produtos-selecionados::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
-}
-
-.produtos-selecionados::-webkit-scrollbar-thumb {
-    background: #cbd5e0;
-    border-radius: 10px;
-}
-
-.produtos-selecionados::-webkit-scrollbar-thumb:hover {
-    background: #a0aec0;
+/* Responsivo - 1 coluna em telas menores */
+@media (max-width: 768px) {
+    .produtos-selecionados {
+        grid-template-columns: 1fr;
+    }
 }
 
 .produto-card {
     position: relative;
     background: white;
-    border: 2px solid #e2e8f0;
     border-radius: 12px;
-    padding: 15px;
-    transition: all 0.3s;
-    cursor: move;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .produto-card:hover {
-    border-color: #667eea;
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+    transform: translateY(-4px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
 }
 
 .produto-card.dragging {
     opacity: 0.5;
+    transform: scale(0.95);
 }
 
 .produto-card.drag-over {
-    border-color: #667eea;
-    border-style: dashed;
-    background: #f7fafc;
-}
-
-.ordem-numero {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background: #667eea;
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: bold;
-    z-index: 2;
-}
-
-.drag-handle {
-    position: absolute;
-    top: 10px;
-    right: 35px;
-    cursor: move;
-    font-size: 18px;
-    color: #cbd5e0;
-    user-select: none;
-    z-index: 2;
+    border: 2px dashed #034abb;
+    background: #f0f8ff;
 }
 
 .produto-card img {
     width: 100%;
-    height: 250px;
+    height: 200px;
     object-fit: contain;
+    margin-bottom: 15px;
     border-radius: 8px;
-    margin-bottom: 10px;
-    background: #ffffff;
+    background: #f9f9f9;
 }
 
 .produto-card h3 {
-    font-size: 13px;
-    color: #2d3748;
-    margin-bottom: 8px;
+    font-size: 14px;
+    margin: 10px 0;
+    color: #333;
     line-height: 1.4;
-    min-height: 36px;
-    padding-top: 15px;
+    min-height: 40px;
 }
 
 .produto-card .info {
-    font-size: 11px;
-    color: #718096;
-    margin-bottom: 4px;
+    font-size: 12px;
+    color: #666;
+    margin: 5px 0;
 }
 
 .btn-remover {
     position: absolute;
     top: 10px;
     right: 10px;
-    background: #fc8181;
+    background: #dc3545;
     color: white;
     border: none;
-    width: 24px;
-    height: 24px;
     border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
     cursor: pointer;
-    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
-    transition: all 0.3s;
-    z-index: 2;
+    z-index: 10;
+    transition: background 0.2s;
 }
 
 .btn-remover:hover {
-    background: #f56565;
-    transform: scale(1.1);
+    background: #c82333;
+}
+
+.ordem-numero {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: #034abb;
+    color: white;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 10;
+}
+
+.drag-handle {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+    cursor: grab;
+    font-size: 20px;
+    color: #999;
+    user-select: none;
+    padding: 5px;
+    z-index: 10;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
 }
 
 /* Botão Gerar */
