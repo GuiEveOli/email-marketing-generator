@@ -4,13 +4,19 @@ import time
 import re
 import csv
 import os
+import io
+import shutil
+import tempfile
+import uuid
+import unicodedata
 from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, send_file, jsonify, redirect, url_for, send_from_directory
+from datetime import datetime
 
 # Importa utilitários do Google Sheets
 ler_produtos_via_sheets_csv = None
@@ -31,6 +37,11 @@ except Exception as e:
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False  # Permite caracteres não-ASCII no JSON
 app.config['JSON_SORT_KEYS'] = False  # Mantém ordem das chaves
+
+# Torna 'current' disponível em todos os templates (ex.: para destacar item do menu)
+@app.context_processor
+def inject_current():
+    return {'current': request.path}
 
 # Cache para produtos (evita recarregar CSV toda vez)
 _produtos_cache = None
@@ -362,7 +373,7 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
 
             html_bloco_desconto = ""
             if porcentagem_desconto > 0:
-                html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px, font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
+                html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
 
             template_produto = f"""
 <!-- Início | Produto -->
@@ -487,6 +498,11 @@ def gerador():
 def skuconsult():
     """Página de consulta de SKU"""
     return render_template('skuconsult/index.html')
+
+@app.route('/organizador')
+def organizador():
+    """Página do organizador de pastas"""
+    return render_template('organizador.html')
 
 @app.route('/buscar-sugestoes', methods=['POST'])
 def buscar_sugestoes():
@@ -688,6 +704,124 @@ def api_produtos():
             'error': str(e),
             'produtos': []
         }), 500
+
+# --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
+# --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
+# --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
+# --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
+# --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
+# --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
+
+@app.route('/processar_imagens', methods=['POST'])
+def processar_imagens():
+    """
+    Recebe um .xlsx e gera um .zip com estrutura de pastas:
+    - Nível 1: Dinâmica (se a planilha tiver essa coluna)
+    - Nível 2: Criativo (coluna informada no formulário)
+    Observação: não baixa imagens; cria .keep para preservar diretórios vazios.
+    """
+    try:
+        excel_file = request.files.get('excel_file')
+        creative_column = (request.form.get('creative_column') or '').strip()
+
+        if not excel_file or not creative_column:
+            return jsonify({'success': False, 'error': 'Arquivo e coluna do criativo são obrigatórios'}), 400
+
+        try:
+            from openpyxl import load_workbook
+        except Exception:
+            return jsonify({
+                'success': False,
+                'error': 'Dependência ausente: instale openpyxl (pip install openpyxl)'
+            }), 500
+
+        # Lê o Excel em memória
+        data = excel_file.read()
+        wb = load_workbook(io.BytesIO(data), data_only=True)
+        ws = wb.active
+
+        # Cabeçalhos
+        headers = [str(c.value or '').strip() for c in ws[1]]
+
+        def _norm(s: str) -> str:
+            s = str(s or '').strip().lower()
+            s = unicodedata.normalize('NFKD', s)
+            return ''.join(ch for ch in s if not unicodedata.combining(ch))
+
+        header_norm_map = {_norm(h): h for h in headers}
+
+        # Resolve coluna do criativo (nome fornecido pelo usuário)
+        col_creative_name = header_norm_map.get(_norm(creative_column))
+        if not col_creative_name:
+            # tenta correspondência parcial
+            col_creative_name = next((orig for norm, orig in header_norm_map.items() if _norm(creative_column) in norm), None)
+        if not col_creative_name:
+            return jsonify({'success': False, 'error': f'Coluna do Criativo não encontrada: "{creative_column}"'}), 400
+
+        # Tenta detectar coluna "Dinâmica"
+        dinamica_aliases = ['dinamica', 'dinâmica', 'categoria', 'campanha', 'grupo', 'etiqueta', 'pasta']
+        col_dinamica_name = None
+        for alias in dinamica_aliases:
+            if alias in header_norm_map:
+                col_dinamica_name = header_norm_map[alias]
+                break
+
+        idx_map = {h: i for i, h in enumerate(headers)}
+        idx_creative = idx_map[col_creative_name]
+        idx_dinamica = idx_map.get(col_dinamica_name) if col_dinamica_name else None
+
+        # Diretório temporário base
+        base_dir = tempfile.mkdtemp(prefix='temp_organizador_')
+
+        def safe(name: str) -> str:
+            name = str(name or '').strip()
+            if not name:
+                return ''
+            name = unicodedata.normalize('NFKD', name)
+            name = ''.join(ch for ch in name if not unicodedata.combining(ch))
+            name = name.replace('/', '-')
+            name = re.sub(r'[^A-Za-z0-9\-\._ ]+', '', name)
+            name = re.sub(r'\s+', ' ', name).strip()
+            return name[:120]  # evita nomes muito longos
+
+        # Cria a estrutura de diretórios
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            creative_val = safe(row[idx_creative] if idx_creative is not None else '')
+            if not creative_val:
+                continue
+
+            # Dinâmica em MAIÚSCULO (nível 1)
+            dinamica_val = (safe(row[idx_dinamica] if idx_dinamica is not None else '') or '').upper()
+            nivel1 = os.path.join(base_dir, dinamica_val) if dinamica_val else base_dir
+            final_path = os.path.join(nivel1, creative_val)
+
+            os.makedirs(final_path, exist_ok=True)
+            keep_file = os.path.join(final_path, '.keep')
+            if not os.path.exists(keep_file):
+                with open(keep_file, 'w', encoding='utf-8') as f:
+                    f.write('')
+
+        # Gera o ZIP
+        # Define nome do ZIP a partir do nome da planilha enviada
+        orig_name = os.path.splitext(os.path.basename(excel_file.filename or 'pastas'))[0]
+        zip_name_base = safe(orig_name) or 'pastas'
+
+        # Cria o ZIP fora do diretório que será compactado para evitar "zip dentro do zip"
+        zip_out_dir = tempfile.mkdtemp(prefix='zip_out_')
+        zip_base = os.path.join(zip_out_dir, zip_name_base)
+        zip_path = shutil.make_archive(zip_base, 'zip', root_dir=base_dir)
+
+        # Retorna o arquivo para download
+        return send_from_directory(
+            os.path.dirname(zip_path),
+            os.path.basename(zip_path),
+            as_attachment=True,
+            download_name=f'{zip_name_base}.zip'
+        )
+
+    except Exception as e:
+        print(f'Erro em /processar_imagens: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # --- CARREGAMENTO INICIAL DO CACHE ---
 print("\n" + "="*60)

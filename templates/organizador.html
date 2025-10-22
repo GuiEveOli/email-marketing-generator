@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Gerador de Estrutura de Pastas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        /* Estilos adicionais para esta página específica */
+        .container {
+            max-width: 700px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        form label {
+            display: block;
+            margin-bottom: .5rem;
+            font-weight: bold;
+        }
+        form input[type="file"], form input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 1.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        form button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        form button:hover {
+            background-color: #0056b3;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="top-nav">
+        <div class="nav-inner">
+            <a href="/" class="brand">🛠️ Ferramentas</a>
+            <nav class="nav-links">
+                <a href="/" class="{% if current == '/' %}active{% endif %}">Hub</a>
+                <a href="/gerador" class="{% if current.startswith('/gerador') %}active{% endif %}">Gerador</a>
+                <a href="/skuconsult" class="{% if current.startswith('/skuconsult') %}active{% endif %}">SKU Consult</a>
+            </nav>
+        </div>
+    </header>
+    <div class="container">
+        <h1>Gerador de Estrutura de Pastas</h1>
+        <p>Faça o upload da planilha para criar uma estrutura de pastas organizadas por dinâmica e criativo. <strong>Esta ferramenta não baixa as imagens.</strong></p>
+        
+        <form action="{{ url_for('processar_imagens') }}" method="post" enctype="multipart/form-data">
+            
+            <label for="excel_file">1. Selecione a planilha (.xlsx):</label>
+            <input type="file" name="excel_file" id="excel_file" accept=".xlsx" required>
+            
+            <label for="creative_column">2. Nome da coluna do Criativo (Ex: Criativo Chamada):</label>
+            <input type="text" name="creative_column" id="creative_column" required>
+            
+            <button type="submit">Gerar e Baixar Pastas (.zip)</button>
+        </form>
+
+        <a href="{{ url_for('index') }}" class="back-link">Voltar para o Início</a>
+    </div>
+</body>
+</html>

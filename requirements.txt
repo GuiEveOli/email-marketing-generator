@@ -6,3 +6,4 @@ requests
 gspread
 google-auth
 gunicorn>=21,<24
+openpyxl>=3.1.5
