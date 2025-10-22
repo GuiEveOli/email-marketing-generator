@@ -28,7 +28,7 @@
     <!-- Container de toasts -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <div class="container">
+    <div class="container container-three-cols">
         <h1>Gerador de Email Marketing</h1>
         <p class="subtitle">Adicione produtos por URL, SKU ou EAN</p>
 
@@ -60,7 +60,7 @@
                 </div>
             </div>
 
-            <!-- Seção de Configurações (DIREITA) -->
+            <!-- Seção de Configurações (CENTRO) -->
             <div class="config-section">
                 <!-- Configuração de UTM -->
                 <div class="config-group">
@@ -93,7 +93,7 @@
                     <h2>3. Seleção de Componentes</h2>
                     <div class="form-group">
                         <label for="componente_bloco_03">Banners Pré Produtos</label>
-                        <select id="componente_bloco_03" name="componente_bloco_03">
+                        <select id="componente_bloco_03" name="componente_bloco_03" onchange="atualizarPreview()">
                             <option value="">Nenhum</option>
                             <option value="bloco_03_categorias_1x1">1x1</option>
                             <option value="bloco_03_categorias_1x2">1x2</option>
@@ -103,7 +103,7 @@
 
                     <div class="form-group">
                         <label for="componente_bloco_05">Banners Pós Produtos</label>
-                        <select id="componente_bloco_05" name="componente_bloco_05">
+                        <select id="componente_bloco_05" name="componente_bloco_05" onchange="atualizarPreview()">
                             <option value="">Nenhum</option>
                             <option value="bloco_05_banner_full">1x1</option>
                         </select>
@@ -125,10 +125,27 @@
                 </div>
             </div>
 
-            <!-- Botão Gerar -->
-            <button type="submit" class="btn-gerar" id="btnGerar">
-                🚀 Gerar Email Marketing
-            </button>
+            <!-- Seção de Preview (DIREITA) -->
+            <div class="preview-section">
+                <div class="preview-header">
+                    <h2>Email Preview</h2>
+                    <button type="button" class="btn-refresh-preview" onclick="atualizarPreview()" title="Atualizar preview">
+                        🔄
+                    </button>
+                </div>
+                <div class="preview-container" id="previewContainer">
+                    <div class="preview-empty">
+                        <p>Adicione produtos e configure os componentes para visualizar o preview</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botão Gerar - Fixo no canto inferior direito -->
+            <div class="bottom-actions">
+                <button type="submit" class="btn-action btn-primary" id="btnGerar">
+                    🚀 Gerar Email
+                </button>
+            </div>
         </form>
     </div>
 
@@ -144,6 +161,7 @@
 
         corPicker.addEventListener('input', function() {
             corHex.value = this.value.toUpperCase();
+            atualizarPreview();
         });
 
         corHex.addEventListener('input', function() {
@@ -157,6 +175,7 @@
             if (/^#[0-9A-Fa-f]{6}$/.test(valor)) {
                 corPicker.value = valor;
                 this.style.borderColor = '#e0e0e0';
+                atualizarPreview();
             } else if (valor.length === 7) {
                 this.style.borderColor = '#dc3545';
             }
@@ -167,7 +186,112 @@
             corHex.value = '#122447';
             corHex.style.borderColor = '#e0e0e0';
             mostrarMensagem('Cor resetada para o padrão', 'sucesso');
+            atualizarPreview();
         });
+
+        function atualizarPreview() {
+            const previewContainer = document.getElementById('previewContainer');
+            const bloco03 = document.getElementById('componente_bloco_03').value;
+            const bloco05 = document.getElementById('componente_bloco_05').value;
+            const corBotao = document.getElementById('cor_botao_hex').value;
+
+            let html = '<div class="email-preview">';
+
+            // Header fixo
+            html += `
+                <div class="preview-block preview-header-block">
+                    <div style="text-align: center;">
+                        <img src="https://placehold.co/600x400/png" alt="Banner" style="width: 100%;">
+                        <img src="{{ url_for('static', filename='img/receba-mesmo-dia.png') }}" alt="Receba no mesmo dia" style="width: 100%; padding: 8px">
+                    </div>
+                </div>
+            `;
+
+            // Banner Pré Produtos
+            if (bloco03) {
+                html += `<div class="preview-block preview-banner-pre">`;
+                if (bloco03 === 'bloco_03_categorias_1x1') {
+                    html += `<img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">`;
+                } else if (bloco03 === 'bloco_03_categorias_1x2') {
+                    html += `
+                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">
+                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
+                    `;
+                } else if (bloco03 === 'bloco_03_categorias_2_colunas') {
+                    html += `
+                        <div style="display: flex; gap: 4px; width: 100%;">
+                            <img src="https://placehold.co/300x400/png" style="width: 48%; display: block;">
+                            <img src="https://placehold.co/300x400/png" style="width: 48%; display: block;">
+                        </div>
+                    `;
+                }
+                html += `</div>`;
+            }
+
+            // Produtos
+            if (produtosSelecionados.length > 0) {
+                html += `<div class="preview-block preview-produtos">`;
+                html += `<div style="background: #f5f5f5; padding: 0; text-align: center;">`;
+                html += `</div>`;
+                
+                // Grid de 2 colunas
+                html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: white; padding: 8px;">`;
+                
+                produtosSelecionados.forEach((produto, index) => {
+                    const badgeClube = produto.is_clube ? '<span style="background: #034abb; color: white; padding: 2px 6px; font-size: 10px; border-radius: 3px; margin-right: 4px;">CLUBE</span>' : '';
+                    const badgeExclusivo = produto.is_exclusivo ? '<span style="background: #122447; color: white; padding: 2px 6px; font-size: 10px; border-radius: 3px;">SITE</span>' : '';
+                    
+                    html += `
+                        <div class="preview-produto" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background: white;">
+                            <div style="text-align: center; margin-bottom: 8px;">
+                                <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 8px; min-height: 100px;">
+                                    <img src="${produto.imagem}" alt="${produto.nome}" style="width: 100%; max-width: 100px; height: 100px; object-fit: contain;" onerror="this.src='https://via.placeholder.com/100?text=?'">
+                                </div>
+                            </div>
+                            <div style="text-align: left;">
+                                <div style="margin-bottom: 5px;">${badgeClube}${badgeExclusivo}</div>
+                                <div style="font-size: 11px; color: #333; line-height: 1.3; min-height: 40px; margin-bottom: 8px;">${produto.nome.substring(0, 50)}...</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`; // Fecha o grid
+                html += `</div>`; // Fecha preview-produtos
+            }
+
+            // Banner Pós Produtos
+            if (bloco05) {
+                html += `<div class="preview-block preview-banner-pos">`;
+                if (bloco05 === 'bloco_05_banner_full') {
+                    html += `<img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">`;
+                }
+                html += `</div>`;
+            }
+
+            // Call to Action
+            html += `
+                <div class="preview-block">
+                    <div style="display: flex; justify-content: center; padding: 12px;">
+                        <a target="_blank" style="font-size: 12px; color: #ffffff; background-color: #ff0000; text-decoration: none; border-radius: 52px; padding: 7px 13px; display: inline-block;" href="">Ver todas as ofertas
+                        </a>
+                    </div>
+                </div>
+            `;
+
+            // Footer fixo
+            html += `
+                <div class="preview-block preview-footer-block">
+                    <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 11px; color: #666;">
+                        <p style="margin: 0;">© 2025 - Todos os direitos reservados</p>
+                    </div>
+                </div>
+            `;
+
+            html += '</div>';
+
+            previewContainer.innerHTML = html;
+        }
 
         function mostrarMensagem(texto, tipo = 'info') {
             const container = document.getElementById('toastContainer');
@@ -227,12 +351,12 @@
                     
                     <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
                         <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px;">
-                            <input type="checkbox" class="checkbox-clube" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                            <input type="checkbox" class="checkbox-clube" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;" onchange="sincronizarCheckbox(${index}, 'clube'); atualizarPreview();">
                             <span style="color: #034abb; font-weight: 600;">Produto Clube</span>
                         </label>
                         
                         <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px;">
-                            <input type="checkbox" class="checkbox-exclusivo" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;">
+                            <input type="checkbox" class="checkbox-exclusivo" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;" onchange="sincronizarCheckbox(${index}, 'exclusivo'); atualizarPreview();">
                             <span style="color: #122447; font-weight: 600;">Exclusivo Site</span>
                         </label>
                     </div>
@@ -248,6 +372,21 @@
             });
 
             atualizarContador();
+            atualizarPreview();
+        }
+
+        function sincronizarCheckbox(index, tipo) {
+            const checkbox = tipo === 'clube' 
+                ? document.querySelector(`.checkbox-clube[data-index="${index}"]`)
+                : document.querySelector(`.checkbox-exclusivo[data-index="${index}"]`);
+            
+            if (checkbox && produtosSelecionados[index]) {
+                if (tipo === 'clube') {
+                    produtosSelecionados[index].is_clube = checkbox.checked;
+                } else {
+                    produtosSelecionados[index].is_exclusivo = checkbox.checked;
+                }
+            }
         }
 
         function handleDragStart(e) {
@@ -379,6 +518,8 @@
                 return;
             }
 
+            produto.is_clube = false;
+            produto.is_exclusivo = false;
             produtosSelecionados.push(produto);
             renderizarProdutos();
             document.getElementById('termoBusca').value = '';
@@ -414,6 +555,8 @@
                             return;
                         }
 
+                        data.produto.is_clube = false;
+                        data.produto.is_exclusivo = false;
                         produtosSelecionados.push(data.produto);
                         renderizarProdutos();
                         document.getElementById('termoBusca').value = '';
@@ -540,6 +683,9 @@
                 btnGerar.disabled = false;
             }
         });
+
+        // Inicializar preview vazio
+        atualizarPreview();
     </script>
 </body>
 </html>

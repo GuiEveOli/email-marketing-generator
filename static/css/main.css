@@ -213,7 +213,7 @@ body.gerador-page .container {
     max-width: 1400px;
     margin: 20px auto;
     background: white;
-    padding: 40px;
+    padding: 20px;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }
@@ -234,10 +234,9 @@ body.gerador-page .subtitle {
 
 body.gerador-page h2 {
     color: #2d3748;
-    font-size: 1.3em;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #e2e8f0;
+    font-size: 1em;
+    margin-bottom: 0;
+    padding-bottom: 12px;
 }
 
 /* Layout de 2 Colunas - Gerador */
@@ -495,7 +494,7 @@ body.gerador-page h2 {
 
 .produto-card img {
     width: 100%;
-    height: 200px;
+    height: 150px;
     object-fit: contain;
     margin-bottom: 15px;
     border-radius: 8px;
@@ -503,7 +502,7 @@ body.gerador-page h2 {
 }
 
 .produto-card h3 {
-    font-size: 14px;
+    font-size: 13px;
     margin: 10px 0;
     color: #333;
     line-height: 1.4;
@@ -511,9 +510,9 @@ body.gerador-page h2 {
 }
 
 .produto-card .info {
-    font-size: 12px;
+    font-size: 11px;
     color: #666;
-    margin: 5px 0;
+    margin: 4px 0;
 }
 
 .btn-remover {
@@ -930,4 +929,261 @@ body.skuconsult-page .produto-card:hover {
     #listaProdutos {
         grid-template-columns: 1fr;
     }
+}
+
+/* Layout de 3 colunas - Simplificado */
+.container-three-cols #formGerador {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.container-three-cols .search-section {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.container-three-cols .config-section {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.container-three-cols .preview-section {
+    flex: 0 0 350px;
+    position: sticky;
+    top: 100px;
+    max-height: calc(100vh - 120px);
+    align-self: flex-start;
+}
+
+.container-three-cols .bottom-actions {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 1000;
+}
+
+/* Responsivo */
+@media (max-width: 1400px) {
+    .container-three-cols .preview-section {
+        flex: 0 0 300px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .container-three-cols #formGerador {
+        flex-wrap: wrap;
+    }
+    
+    .container-three-cols .search-section,
+    .container-three-cols .config-section {
+        flex: 1 1 calc(50% - 10px);
+        min-width: 300px;
+    }
+    
+    .container-three-cols .preview-section {
+        flex: 1 1 100%;
+        position: relative;
+        max-height: 500px;
+    }
+}
+
+@media (max-width: 900px) {
+    .container-three-cols #formGerador {
+        flex-direction: column;
+    }
+    
+    .container-three-cols .search-section,
+    .container-three-cols .config-section,
+    .container-three-cols .preview-section {
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+    
+    .produtos-selecionados {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Preview Section */
+.preview-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.preview-header {
+    background: linear-gradient(135deg, #034abb 0%, #122447 100%);
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.preview-header h2 {
+    color: white !important;
+    padding-bottom: 0 !important;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.btn-refresh-preview {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.btn-refresh-preview:hover {
+    background: rgba(255,255,255,0.3);
+    transform: rotate(180deg);
+}
+
+.preview-container {
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    background: #f9f9f9;
+}
+
+.email-preview {
+    background: white;
+    max-height: 600px;
+    margin: 0 auto;
+    width: 100%;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* Responsivo para o preview */
+@media (max-width: 1400px) {
+    .email-preview {
+        max-width: 100%;
+    }
+}
+
+.preview-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.preview-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.preview-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.preview-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.preview-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+
+.email-preview {
+    background: #f4f4f4;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.preview-block {
+    margin-bottom: 2px;
+}
+
+.preview-block img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+.preview-produtos {
+    background: white;
+}
+
+.preview-produto {
+    transition: transform 0.2s;
+}
+
+.preview-produto:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Responsivo para o preview */
+@media (max-width: 768px) {
+    .preview-produtos > div {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Botões de ação fixos (inferior direito) */
+.bottom-actions {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    display: flex;
+    gap: 15px;
+    z-index: 1000;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.btn-action {
+    padding: 15px 30px;
+    border: none;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.btn-action:active {
+    transform: translateY(0);
+}
+
+.btn-action:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-primary {
+    background: #ff0000;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #c70000;
 }
