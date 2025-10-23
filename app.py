@@ -273,155 +273,262 @@ def adicionar_utm_na_url(url_original, utm_source, utm_medium, utm_campaign):
 # --- LÓGICA DE BUSCA DE PRODUTOS ---
 def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", utm_campaign="cupom+15+novo+site", cor_botao="#ff0000"):
     """
-    Usa Selenium otimizado para sites que carregam conteúdo via JavaScript
+    Busca dados do produto via requests, extraindo o JSON do window.APOLLO_STATE
+    contido na tag <script id="main-states"> e gerando os blocos HTML.
+    A imagem do produto é preferencialmente obtida do HTML, com fallback no APOLLO_STATE.
     """
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service as ChromeService
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    from webdriver_manager.chrome import ChromeDriverManager
-    
-    # Configuração otimizada do Chrome
-    chrome_options = Options()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--disable-extensions')
-    chrome_options.add_argument('--disable-images')  # Não carrega imagens (mais rápido)
-    chrome_options.add_argument('--blink-settings=imagesEnabled=false')
-    chrome_options.add_experimental_option('prefs', {
-        'profile.managed_default_content_settings.images': 2,
-        'profile.default_content_setting_values.notifications': 2,
+    import json
+    import requests
+    from bs4 import BeautifulSoup
+
+    def _extract_apollo_state(script_text: str) -> dict | None:
+        if not script_text:
+            return None
+        idx = script_text.find("window.APOLLO_STATE")
+        if idx == -1:
+            return None
+        start = script_text.find("{", idx)
+        if start == -1:
+            return None
+        braces = 0
+        end = -1
+        for i in range(start, len(script_text)):
+            ch = script_text[i]
+            if ch == "{":
+                braces += 1
+            elif ch == "}":
+                braces -= 1
+                if braces == 0:
+                    end = i + 1
+                    break
+        if end == -1:
+            return None
+        json_str = script_text[start:end]
+        json_str = json_str.replace(": undefined", ": null").replace(":undefined", ": null")
+        try:
+            return json.loads(json_str)
+        except Exception:
+            try:
+                return json.loads(json_str.encode("utf-8", "ignore").decode("utf-8"))
+            except Exception:
+                return None
+
+    def _to_float(val) -> float:
+        try:
+            if isinstance(val, (int, float)):
+                return float(val)
+            if isinstance(val, str):
+                v = val.strip()
+                if v.count(",") == 1 and v.count(".") == 0:
+                    v = v.replace(".", "").replace(",", ".")
+                else:
+                    v = re.sub(r"[^0-9\.,-]", "", v)
+                    if v.count(",") == 1 and v.count(".") == 0:
+                        v = v.replace(",", ".")
+                return float(v)
+        except Exception:
+            return 0.0
+        return 0.0
+
+    def _format_brl(num: float) -> str:
+        return f"{num:.2f}".replace(".", ",")
+
+    def _resolve_image_url(apollo: dict, image_ref) -> str:
+        """
+        Fallback: resolve a URL via APOLLO_STATE (File:... -> url)
+        """
+        placeholder = "https://via.placeholder.com/120"
+        ref_key = None
+        if isinstance(image_ref, str):
+            ref_key = image_ref
+        elif isinstance(image_ref, dict):
+            ref_key = image_ref.get("__ref") or image_ref.get("id")
+        if not ref_key:
+            return placeholder
+        file_obj = apollo.get(ref_key)
+        if isinstance(file_obj, dict):
+            return file_obj.get("url") or file_obj.get("src") or placeholder
+        return placeholder
+
+    def _extract_image_from_html(soup: BeautifulSoup, nome_produto: str | None = None) -> str:
+        """
+        Tenta obter a imagem diretamente do HTML (galeria/og:image), sem depender do APOLLO_STATE.
+        """
+        placeholder = "https://via.placeholder.com/120"
+
+        # Preferir a imagem ativa da galeria do produto
+        selectors = [
+            'div.product-image-gallery-active-image img[src]',
+            'div.product-image-gallery-desktop-view img[src]',
+            'div.product-image-gallery img[src]',
+            'div.static-image-viewer-container img[src]',
+            'img[class*="product-image"][src]',
+            'img[src][alt]'
+        ]
+        candidates = []
+        for sel in selectors:
+            el = soup.select_one(sel)
+            if el and el.get('src'):
+                src = (el.get('src') or '').strip()
+                if src and not src.startswith('data:'):
+                    candidates.append((src, el.get('alt') or ''))
+
+        # Se achou, preferir o que casa com o nome do produto
+        if candidates:
+            if nome_produto:
+                for src, alt in candidates:
+                    if nome_produto.lower() in alt.lower():
+                        return src
+            return candidates[0][0]
+
+        # Meta og:image como fallback
+        og = soup.find('meta', property='og:image') or soup.find('meta', attrs={'name': 'og:image'})
+        if og and og.get('content'):
+            content = og.get('content').strip()
+            if content:
+                return content
+
+        # link rel="image_src"
+        link_img = soup.find('link', rel='image_src')
+        if link_img and link_img.get('href'):
+            href = link_img.get('href').strip()
+            if href:
+                return href
+
+        # Último recurso: qualquer <img src>
+        any_img = soup.find('img', src=True)
+        if any_img and any_img.get('src'):
+            return any_img.get('src').strip()
+
+        return placeholder
+
+    def _pick_product(apollo: dict) -> tuple[dict | None, str | None]:
+        for key, value in apollo.items():
+            if isinstance(key, str) and key.startswith("PublicViewerProduct:") and isinstance(value, dict):
+                product_id = key.split(":", 1)[1]
+                return value, product_id
+        return None, None
+
+    def _pick_pricing(apollo: dict, product_id: str | None) -> dict | None:
+        candidates = []
+        for key, value in apollo.items():
+            if isinstance(key, str) and key.startswith("PublicViewerProductPricing:") and isinstance(value, dict):
+                if product_id and product_id in key:
+                    candidates.append(value)
+        if not candidates:
+            for key, value in apollo.items():
+                if isinstance(key, str) and key.startswith("PublicViewerProductPricing:") and isinstance(value, dict):
+                    if "price" in value or "promotionalPrice" in value:
+                        candidates.append(value)
+        candidates.sort(key=lambda v: ("promotionalPrice" in v, "price" in v), reverse=True)
+        return candidates[0] if candidates else None
+
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Connection": "keep-alive",
     })
-    
-    print("Iniciando Selenium otimizado...")
-    driver = webdriver.Chrome(
-        service=ChromeService(ChromeDriverManager().install()),
-        options=chrome_options
-    )
-    driver.set_page_load_timeout(15)
-    
+
     todos_os_produtos_html = []
     contador_produto = 0
-    
-    try:
-        for produto_info in produtos_info:
-            url = produto_info.get('url', '').strip()
-            is_clube = produto_info.get('is_clube', False)
-            is_exclusivo = produto_info.get('is_exclusivo', False)
-            
-            if not url:
-                continue
-            
-            contador_produto += 1
-            
-            badges = []
-            if is_clube:
-                badges.append('[CLUBE]')
-            if is_exclusivo:
-                badges.append('[EXCLUSIVO]')
-            badges_str = ' '.join(badges) if badges else ''
-            
-            print(f"\n{'='*60}")
-            print(f"Processando produto {contador_produto}: {badges_str}")
-            print(f"URL: {url}")
-            
-            if contador_produto > 50:
-                print(f"Limite de 50 produtos atingido.")
-                break
-            
+
+    for produto_info in produtos_info:
+        url = (produto_info.get('url') or '').strip()
+        is_clube = bool(produto_info.get('is_clube', False))
+        is_exclusivo = bool(produto_info.get('is_exclusivo', False))
+
+        if not url:
+            continue
+
+        contador_produto += 1
+        if contador_produto > 50:
+            print("Limite de 50 produtos atingido.")
+            break
+
+        try:
+            resp = session.get(url, timeout=(5, 12))
+            resp.raise_for_status()
+        except Exception as e:
+            print(f"✗ Falha ao baixar HTML do produto {contador_produto}: {e}")
+            continue
+
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        script_tag = soup.find('script', id='main-states')
+
+        if not script_tag:
+            print(f"✗ <script id='main-states'> não encontrado na página {url}")
+            continue
+
+        apollo = _extract_apollo_state(script_tag.text)
+        if not apollo:
+            print(f"✗ Não foi possível extrair/parsing do window.APOLLO_STATE para {url}")
+            continue
+
+        product_obj, product_id = _pick_product(apollo)
+        if not product_obj:
+            print(f"✗ PublicViewerProduct não encontrado em APOLLO_STATE para {url}")
+            continue
+
+        # Nome
+        nome_produto = product_obj.get("name") or "Produto Genérico"
+
+        # Imagem: agora prioriza HTML; se falhar, usa APOLLO_STATE
+        url_imagem = _extract_image_from_html(soup, nome_produto)
+        if not url_imagem or url_imagem.endswith(('.svg', '.gif')):  # pequeno filtro defensivo
+            url_imagem = _resolve_image_url(apollo, product_obj.get("image"))
+
+        # Pricing
+        pricing = _pick_pricing(apollo, product_id)
+        preco_de_num = _to_float(pricing.get("price") if pricing else 0)
+        promocional = pricing.get("promotionalPrice") if pricing else None
+        preco_por_num = _to_float(promocional if promocional not in (None, "") else preco_de_num)
+
+        # Cálculo de desconto
+        porcentagem_desconto = 0
+        if preco_de_num > preco_por_num and preco_por_num > 0:
             try:
-                driver.get(url)
-                
-                # Aguarda explicitamente o preço DE carregar (espera até 10s)
-                print("→ Aguardando preço anterior carregar...")
-                try:
-                    WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, '.product-header-summary-price-promotion'))
-                    )
-                    print("  ✓ Preço anterior detectado!")
-                except:
-                    print("  ℹ Preço anterior não carregou (produto sem desconto)")
-                
-                # Captura o HTML completo APÓS JavaScript executar
-                html_completo = driver.page_source
-                soup = BeautifulSoup(html_completo, 'html.parser')
-                
-                print("→ Extraindo dados do produto...")
-                
-                # Nome do produto
-                nome_produto = "Produto Genérico"
-                nome_produto_tag = soup.select_one('h1')
-                if nome_produto_tag:
-                    nome_produto = nome_produto_tag.text.strip().title()
-                    print(f"  ✓ Nome: {nome_produto[:50]}...")
-                
-                # Imagem
-                url_imagem = "https://via.placeholder.com/120"
-                imagem_tag = (
-                    soup.select_one('div.product-image-gallery-active-image img') or
-                    soup.select_one('meta[property="og:image"]')
-                )
-                if imagem_tag:
-                    if imagem_tag.name == 'meta':
-                        url_imagem = imagem_tag.get('content', url_imagem)
-                    else:
-                        url_imagem = imagem_tag.get('src', url_imagem)
-                    print(f"  ✓ Imagem encontrada")
-                
-                # Preço atual
-                preco_por_texto = "0,00"
-                preco_por_tag = (
-                    soup.select_one('.product-renderer-pricing-wrapper span') or
-                    soup.select_one('.active-price-box')
-                )
-                if preco_por_tag:
-                    preco_por_texto = preco_por_tag.text.strip()
-                    print(f"  ✓ Preço atual: {preco_por_texto}")
-                
-                # Preço anterior (agora deve estar carregado!)
-                preco_de_texto = ""
-                preco_de_tag = soup.select_one('.text-full-price')
-                if preco_de_tag:
-                    preco_de_texto = preco_de_tag.text.strip()
-                    print(f"  ✓ Preço anterior: {preco_de_texto}")
-                else:
-                    print("  ℹ Preço anterior não encontrado")
-                
-                # Converte preços
-                preco_por_num = float(re.sub(r'[^\d,]', '', preco_por_texto).replace(',', '.')) if preco_por_texto else 0.0
-                preco_de_num = 0.0
-                if preco_de_texto:
-                    preco_de_num = float(re.sub(r'[^\d,]', '', preco_de_texto).replace(',', '.'))
-                
+                porcentagem_desconto = int(((preco_de_num - preco_por_num) / max(preco_de_num, 0.0001)) * 100)
+            except Exception:
                 porcentagem_desconto = 0
-                if preco_de_num > preco_por_num and preco_por_num > 0:
-                    porcentagem_desconto = int(((preco_de_num - preco_por_num) / preco_de_num) * 100)
-                    print(f"  ✓ Desconto: {porcentagem_desconto}%")
-                
-                preco_por_formatado = f"{preco_por_num:.2f}".replace('.', ',')
-                preco_de_formatado = f"{preco_de_num:.2f}".replace('.', ',')
-                
-                utm_medium_automatico = f"produto {contador_produto:02d}"
-                url_com_utm = adicionar_utm_na_url(url, utm_source, utm_medium_automatico, utm_campaign)
-                
-                # Selos
-                html_selo_oferta = ""
-                if is_clube:
-                    html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #cce0ff; color: #034abb; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Clube</span></td></tr>'
-                elif is_exclusivo:
-                    html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #bccdee; color: #122447; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Exclusivo Site</span></td></tr>'
-                elif porcentagem_desconto > 0:
-                    html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Oferta</span></td></tr>'
-                
-                html_bloco_desconto = ""
-                if porcentagem_desconto > 0:
-                    html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
-                
-                template_produto = f"""
+
+        preco_por_formatado = _format_brl(preco_por_num)
+        preco_de_formatado = _format_brl(preco_de_num)
+
+        utm_medium_automatico = f"produto {contador_produto:02d}"
+        url_com_utm = adicionar_utm_na_url(url, utm_source, utm_medium_automatico, utm_campaign)
+
+        # LOG DE CONFERÊNCIA DO PRODUTO
+        try:
+            print("-" * 60)
+            print(f"[Produto {contador_produto:02d}] {nome_produto}")
+            print(f"  - ID: {product_id}")
+            print(f"  - Preço DE: R$ {preco_de_formatado} | POR: R$ {preco_por_formatado} | Desc.: {porcentagem_desconto}%")
+            if is_clube or is_exclusivo:
+                selos = ' | '.join(filter(None, ["Clube" if is_clube else None, "Exclusivo Site" if is_exclusivo else None]))
+                if selos:
+                    print(f"  - Selos: {selos}")
+            print(f"  - Imagem (HTML→fallback APOLLO): {url_imagem}")
+            print(f"  - URL: {url}")
+            print(f"  - URL (UTM): {url_com_utm}")
+        except Exception:
+            pass
+
+        # Selos
+        html_selo_oferta = ""
+        if is_clube:
+            html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #cce0ff; color: #034abb; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Clube</span></td></tr>'
+        elif is_exclusivo:
+            html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #bccdee; color: #122447; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Exclusivo Site</span></td></tr>'
+        elif porcentagem_desconto > 0:
+            html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Oferta</span></td></tr>'
+
+        html_bloco_desconto = ""
+        if porcentagem_desconto > 0 and preco_de_num > 0:
+            html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
+
+        template_produto = f"""
 <!-- Início | Produto -->
 <div class="column" style="display: inline-block; width: 50%; max-width: 300px; vertical-align: top; box-sizing: border-box; padding: 4px;">
     <table class="product-card-table" width="100%" border="0" cellpadding="0" cellspacing="0" 
@@ -467,7 +574,7 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
                             <tr>
                                 <td style="font-size: 16px; font-weight: 700; color: #212529; 
                                            font-family: 'Roboto', Arial, sans-serif; padding-bottom: 12px;">
-                                    R$ {preco_por_formatado}
+                                    R$ {_format_brl(preco_por_num)}
                                 </td>
                             </tr>
                             
@@ -502,24 +609,11 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
 </div>
 <!-- Fim | Produto -->
 """
-                todos_os_produtos_html.append(template_produto)
-                print(f"✓ Produto {contador_produto} finalizado!")
-                
-            except Exception as e:
-                print(f"✗ Erro ao processar produto: {e}")
-                import traceback
-                traceback.print_exc()
-                continue
-    
-    finally:
-        driver.quit()
-        print(f"\n{'='*60}")
-        print(f"✓ Selenium encerrado.")
-        print(f"✓ Total: {len(todos_os_produtos_html)} produtos")
-        print(f"{'='*60}\n")
-    
+        todos_os_produtos_html.append(template_produto)
+        print(f"✓ Produto {contador_produto} processado (via HTML/APOLLO).")
+
     html_final_dos_produtos = '\n'.join(todos_os_produtos_html)
-    
+
     if '{{PRODUTOS_PLACEHOLDER}}' in template_base_html:
         email_final_html = template_base_html.replace('{{PRODUTOS_PLACEHOLDER}}', html_final_dos_produtos)
     elif '<!-- PRODUTOS -->' in template_base_html:
@@ -528,7 +622,7 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
         email_final_html = template_base_html.replace('<!-- PRODUTOS_AQUI -->', html_final_dos_produtos)
     else:
         email_final_html = template_base_html + html_final_dos_produtos
-    
+
     return email_final_html
 
 # --- ROTAS DO SITE ---
