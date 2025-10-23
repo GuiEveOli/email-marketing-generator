@@ -2,7 +2,7 @@ Flask
 beautifulsoup4
 selenium
 webdriver-manager
-requests
+requests>=2.31.0
 gspread
 google-auth
 gunicorn>=21,<24

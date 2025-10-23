@@ -11,10 +11,6 @@ import uuid
 import unicodedata
 from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
 from flask import Flask, render_template, request, send_file, jsonify, redirect, url_for, send_from_directory
 from datetime import datetime
 
@@ -277,105 +273,155 @@ def adicionar_utm_na_url(url_original, utm_source, utm_medium, utm_campaign):
 # --- LÓGICA DE BUSCA DE PRODUTOS ---
 def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", utm_campaign="cupom+15+novo+site", cor_botao="#ff0000"):
     """
-    Recebe lista de dicionários com URLs e flags is_clube/is_exclusivo,
-    e insere o grid de produtos com selo apropriado.
-    
-    Args:
-        cor_botao: Cor hexadecimal do botão "Ver Produto" (padrão: #ff0000)
+    Usa Selenium otimizado para sites que carregam conteúdo via JavaScript
     """
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.service import Service as ChromeService
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from webdriver_manager.chrome import ChromeDriverManager
+    
+    # Configuração otimizada do Chrome
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("log-level=3")
-
-    print("Configurando o driver do Chrome...")
-    try:
-        driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
-    except Exception as e:
-        print(f"Ocorreu um erro ao iniciar o driver: {e}")
-        return f"<h1>Erro ao iniciar o navegador: {e}</h1>"
-
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--disable-extensions')
+    chrome_options.add_argument('--disable-images')  # Não carrega imagens (mais rápido)
+    chrome_options.add_argument('--blink-settings=imagesEnabled=false')
+    chrome_options.add_experimental_option('prefs', {
+        'profile.managed_default_content_settings.images': 2,
+        'profile.default_content_setting_values.notifications': 2,
+    })
+    
+    print("Iniciando Selenium otimizado...")
+    driver = webdriver.Chrome(
+        service=ChromeService(ChromeDriverManager().install()),
+        options=chrome_options
+    )
+    driver.set_page_load_timeout(15)
+    
     todos_os_produtos_html = []
     contador_produto = 0
     
-    for produto_info in produtos_info:
-        url = produto_info.get('url', '').strip()
-        is_clube = produto_info.get('is_clube', False)
-        is_exclusivo = produto_info.get('is_exclusivo', False)
-        
-        if not url:
-            continue
-        
-        contador_produto += 1
-        
-        # Monta os badges para log
-        badges = []
-        if is_clube:
-            badges.append('[CLUBE]')
-        if is_exclusivo:
-            badges.append('[EXCLUSIVO]')
-        badges_str = ' '.join(badges) if badges else ''
-        
-        print(f"Processando URL {contador_produto}: {url.split('/')[-1]} {badges_str}")
-        
-        if contador_produto > 50:
-            print(f"Limite de 50 produtos atingido. Parando processamento.")
-            break
+    try:
+        for produto_info in produtos_info:
+            url = produto_info.get('url', '').strip()
+            is_clube = produto_info.get('is_clube', False)
+            is_exclusivo = produto_info.get('is_exclusivo', False)
             
-        try:
-            driver.get(url)
-            time.sleep(3)
-
-            html_completo = driver.page_source
-            soup = BeautifulSoup(html_completo, 'html.parser')
-
-            # --- Extração dos dados ---
-            nome_produto_tag = soup.select_one('h1')
-            nome_produto = nome_produto_tag.text.strip().title() if nome_produto_tag else "Produto Genérico"
-
-            imagem_tag = soup.select_one('div.product-image-gallery-active-image img')
-            url_imagem = imagem_tag['src'] if imagem_tag else "https://via.placeholder.com/120"
-
-            preco_por_tag = soup.select_one('.product-renderer-active-price-wrapper span')
-            preco_por_texto = preco_por_tag.text.strip() if preco_por_tag else "0,00"
-
-            preco_de_tag = soup.select_one('p.text-full-price')
-            preco_de_texto = preco_de_tag.text.strip() if preco_de_tag else ""
-
-            preco_por_num = float(re.sub(r'[^\d,]', '', preco_por_texto).replace(',', '.'))
-            preco_de_num = 0.0
-            if preco_de_texto:
-                preco_de_num = float(re.sub(r'[^\d,]', '', preco_de_texto).replace(',', '.'))
-
-            porcentagem_desconto = 0
-            if preco_de_num > preco_por_num:
-                porcentagem_desconto = int(((preco_de_num - preco_por_num) / preco_de_num) * 100)
-
-            preco_por_formatado = f"{preco_por_num:.2f}".replace('.', ',')
-            preco_de_formatado = f"{preco_de_num:.2f}".replace('.', ',')
-
-            utm_medium_automatico = f"produto {contador_produto:02d}"
-            url_com_utm = adicionar_utm_na_url(url, utm_source, utm_medium_automatico, utm_campaign)
-
-            # Define o selo baseado no tipo de produto (ordem de prioridade)
-            html_selo_oferta = ""
+            if not url:
+                continue
+            
+            contador_produto += 1
+            
+            badges = []
             if is_clube:
-                # Selo CLUBE (azul) - prioridade 1
-                html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #cce0ff; color: #034abb; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Clube</span></td></tr>'
-            elif is_exclusivo:
-                # Selo EXCLUSIVO SITE (azul escuro) - prioridade 2
-                html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #bccdee; color: #122447; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Exclusivo Site</span></td></tr>'
-            elif porcentagem_desconto > 0:
-                # Selo OFERTA (vermelho) - prioridade 3
-                html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Oferta</span></td></tr>'
-
-            html_bloco_desconto = ""
-            if porcentagem_desconto > 0:
-                html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
-
-            template_produto = f"""
+                badges.append('[CLUBE]')
+            if is_exclusivo:
+                badges.append('[EXCLUSIVO]')
+            badges_str = ' '.join(badges) if badges else ''
+            
+            print(f"\n{'='*60}")
+            print(f"Processando produto {contador_produto}: {badges_str}")
+            print(f"URL: {url}")
+            
+            if contador_produto > 50:
+                print(f"Limite de 50 produtos atingido.")
+                break
+            
+            try:
+                driver.get(url)
+                
+                # Aguarda explicitamente o preço DE carregar (espera até 10s)
+                print("→ Aguardando preço anterior carregar...")
+                try:
+                    WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, '.product-header-summary-price-promotion'))
+                    )
+                    print("  ✓ Preço anterior detectado!")
+                except:
+                    print("  ℹ Preço anterior não carregou (produto sem desconto)")
+                
+                # Captura o HTML completo APÓS JavaScript executar
+                html_completo = driver.page_source
+                soup = BeautifulSoup(html_completo, 'html.parser')
+                
+                print("→ Extraindo dados do produto...")
+                
+                # Nome do produto
+                nome_produto = "Produto Genérico"
+                nome_produto_tag = soup.select_one('h1')
+                if nome_produto_tag:
+                    nome_produto = nome_produto_tag.text.strip().title()
+                    print(f"  ✓ Nome: {nome_produto[:50]}...")
+                
+                # Imagem
+                url_imagem = "https://via.placeholder.com/120"
+                imagem_tag = (
+                    soup.select_one('div.product-image-gallery-active-image img') or
+                    soup.select_one('meta[property="og:image"]')
+                )
+                if imagem_tag:
+                    if imagem_tag.name == 'meta':
+                        url_imagem = imagem_tag.get('content', url_imagem)
+                    else:
+                        url_imagem = imagem_tag.get('src', url_imagem)
+                    print(f"  ✓ Imagem encontrada")
+                
+                # Preço atual
+                preco_por_texto = "0,00"
+                preco_por_tag = (
+                    soup.select_one('.product-renderer-pricing-wrapper span') or
+                    soup.select_one('.active-price-box')
+                )
+                if preco_por_tag:
+                    preco_por_texto = preco_por_tag.text.strip()
+                    print(f"  ✓ Preço atual: {preco_por_texto}")
+                
+                # Preço anterior (agora deve estar carregado!)
+                preco_de_texto = ""
+                preco_de_tag = soup.select_one('.text-full-price')
+                if preco_de_tag:
+                    preco_de_texto = preco_de_tag.text.strip()
+                    print(f"  ✓ Preço anterior: {preco_de_texto}")
+                else:
+                    print("  ℹ Preço anterior não encontrado")
+                
+                # Converte preços
+                preco_por_num = float(re.sub(r'[^\d,]', '', preco_por_texto).replace(',', '.')) if preco_por_texto else 0.0
+                preco_de_num = 0.0
+                if preco_de_texto:
+                    preco_de_num = float(re.sub(r'[^\d,]', '', preco_de_texto).replace(',', '.'))
+                
+                porcentagem_desconto = 0
+                if preco_de_num > preco_por_num and preco_por_num > 0:
+                    porcentagem_desconto = int(((preco_de_num - preco_por_num) / preco_de_num) * 100)
+                    print(f"  ✓ Desconto: {porcentagem_desconto}%")
+                
+                preco_por_formatado = f"{preco_por_num:.2f}".replace('.', ',')
+                preco_de_formatado = f"{preco_de_num:.2f}".replace('.', ',')
+                
+                utm_medium_automatico = f"produto {contador_produto:02d}"
+                url_com_utm = adicionar_utm_na_url(url, utm_source, utm_medium_automatico, utm_campaign)
+                
+                # Selos
+                html_selo_oferta = ""
+                if is_clube:
+                    html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #cce0ff; color: #034abb; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Clube</span></td></tr>'
+                elif is_exclusivo:
+                    html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #bccdee; color: #122447; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Exclusivo Site</span></td></tr>'
+                elif porcentagem_desconto > 0:
+                    html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Oferta</span></td></tr>'
+                
+                html_bloco_desconto = ""
+                if porcentagem_desconto > 0:
+                    html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
+                
+                template_produto = f"""
 <!-- Início | Produto -->
 <div class="column" style="display: inline-block; width: 50%; max-width: 300px; vertical-align: top; box-sizing: border-box; padding: 4px;">
     <table class="product-card-table" width="100%" border="0" cellpadding="0" cellspacing="0" 
@@ -456,18 +502,22 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
 </div>
 <!-- Fim | Produto -->
 """
-            todos_os_produtos_html.append(template_produto)
-            
-            print(f"Produto {contador_produto} processado com sucesso: {nome_produto}")
-            
-        except Exception as e:
-            print(f"Erro ao processar a URL {url}: {e}")
-            todos_os_produtos_html.append(f"<div>Erro ao buscar produto: {url}</div>")
-
-    driver.quit()
-    print("Navegador fechado.")
-    print(f"Total de produtos processados: {len(todos_os_produtos_html)}")
-
+                todos_os_produtos_html.append(template_produto)
+                print(f"✓ Produto {contador_produto} finalizado!")
+                
+            except Exception as e:
+                print(f"✗ Erro ao processar produto: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+    
+    finally:
+        driver.quit()
+        print(f"\n{'='*60}")
+        print(f"✓ Selenium encerrado.")
+        print(f"✓ Total: {len(todos_os_produtos_html)} produtos")
+        print(f"{'='*60}\n")
+    
     html_final_dos_produtos = '\n'.join(todos_os_produtos_html)
     
     if '{{PRODUTOS_PLACEHOLDER}}' in template_base_html:
@@ -477,9 +527,8 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
     elif '<!-- PRODUTOS_AQUI -->' in template_base_html:
         email_final_html = template_base_html.replace('<!-- PRODUTOS_AQUI -->', html_final_dos_produtos)
     else:
-        print("AVISO: Nenhum placeholder encontrado no template!")
         email_final_html = template_base_html + html_final_dos_produtos
-
+    
     return email_final_html
 
 # --- ROTAS DO SITE ---
