@@ -8,8 +8,42 @@
         body { margin:0; font-family: Arial, Helvetica, sans-serif; height:100vh; display:flex; flex-direction:column; }
         .topbar { background:#f8f9fa; padding:12px 16px; border-bottom:1px solid #e9ecef; display:flex; align-items:center; justify-content:space-between; }
         .topbar h2 { margin:0; font-size:16px; color:#333; }
-        .iframe-wrap { flex:1; }
-        iframe#preview { width:100%; height:100%; border:none; display:block; }
+        .topbar-controls { display:flex; align-items:center; gap:10px; }
+        .view-toggle { display:flex; gap:5px; background:#fff; border-radius:6px; padding:4px; border:1px solid #dee2e6; }
+        .view-toggle button { 
+            padding:6px 12px; 
+            border:none; 
+            background:transparent; 
+            cursor:pointer; 
+            border-radius:4px;
+            font-size:13px;
+            transition:all 0.2s;
+        }
+        .view-toggle button:hover { background:#f8f9fa; }
+        .view-toggle button.active { background:#007bff; color:#fff; }
+        
+        .iframe-wrap { flex:1; display:flex; justify-content:center; align-items:center; background:#e9ecef; }
+        iframe#preview { 
+            width:100%; 
+            height:100%; 
+            border:none; 
+            display:block; 
+            background:#fff;
+            transition: all 0.3s ease;
+        }
+        
+        /* Modo mobile */
+        .iframe-wrap.mobile-view {
+            padding:20px;
+        }
+        
+        .iframe-wrap.mobile-view iframe#preview {
+            width:375px;
+            height:667px;
+            border:1px solid #333;
+            border-radius:20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
 
         /* Botões flutuantes */
         .floating-buttons {
@@ -153,7 +187,24 @@
 <body>
     <div class="topbar">
         <h2>Preview do E-mail Gerado</h2>
-        <div>Use os botões para baixar, ver código ou gerar novo e-mail</div>
+        <div class="topbar-controls">
+            <div class="view-toggle">
+                <button id="desktopBtn" class="active" title="Visualização Desktop">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2"/>
+                        <path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    Desktop
+                </button>
+                <button id="mobileBtn" title="Visualização Mobile">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    Mobile
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="erro-container" id="erroContainer">
@@ -244,6 +295,22 @@
         const htmlContent = document.getElementById('htmlContent');
         const closeModal = document.querySelector('.close');
         const copyBtn = document.getElementById('copyBtn');
+        const desktopBtn = document.getElementById('desktopBtn');
+        const mobileBtn = document.getElementById('mobileBtn');
+        const iframeWrap = document.getElementById('iframeWrap');
+
+        // Toggle entre visualização desktop e mobile
+        desktopBtn.addEventListener('click', function() {
+            iframeWrap.classList.remove('mobile-view');
+            desktopBtn.classList.add('active');
+            mobileBtn.classList.remove('active');
+        });
+
+        mobileBtn.addEventListener('click', function() {
+            iframeWrap.classList.add('mobile-view');
+            mobileBtn.classList.add('active');
+            desktopBtn.classList.remove('active');
+        });
 
         // Função para baixar HTML
         function downloadHtml(filename = 'email_gerado.html') {

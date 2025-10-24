@@ -760,6 +760,7 @@ def gerar_email():
         utm_campaign = data.get('utm_campaign', 'sem-campanha')
         bloco_03_selecionado = data.get('componente_bloco_03')
         bloco_05_selecionado = data.get('componente_bloco_05')
+        bloco_cupom_selecionado = data.get('componente_bloco_cupom', '')  # Corrigido: valor padrão vazio
         cor_botao = data.get('cor_botao', '#ff0000')
         
         # Valida formato hexadecimal
@@ -772,13 +773,15 @@ def gerar_email():
         print(f"✓ Recebidos {len(produtos_selecionados)} produtos para processar.")
         print(f"✓ UTM Source: {utm_source}")
         print(f"✓ UTM Campaign: {utm_campaign}")
+        print(f"✓ Bloco Cupom: {'Sim' if bloco_cupom_selecionado else 'Não selecionado'}")
         print(f"✓ Cor do botão: {cor_botao}")
         
         print("→ Renderizando template base...")
         template_para_produtos = render_template(
             'email_layout.html', 
             componente_bloco_03=bloco_03_selecionado, 
-            componente_bloco_05=bloco_05_selecionado
+            componente_bloco_05=bloco_05_selecionado,
+            componente_bloco_cupom=bloco_cupom_selecionado
         )
         
         print("→ Iniciando busca de produtos...")

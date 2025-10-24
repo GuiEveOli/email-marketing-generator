@@ -24,6 +24,20 @@
 </tr>
 <!-- Fim | Produtos -->
 
+<!-- Início | Call to Action -->
+<tr>
+    <td align="center">
+        <table border="0" cellspacing="0" cellpadding="0" style="margin: 20px auto;">
+            <tbody>
+                <tr>
+                    <td align="center" style="border-radius: 52px;" bgcolor="#ff0000"><a target="_blank" style="font-size: 16px; font-family: Arial, sans-serif; color: #ffffff; text-decoration: none;border-radius: 52px; padding: 15px 25px; display: inline-block;" href="https://www.superkoch.com.br/promocoes?utm_campaign=encarte+13%2F10&amp;utm_medium=todas+as+ofertas&amp;utm_source=email-mkt">Ver todas as ofertas</a></td>
+                </tr>
+            </tbody>
+        </table>
+    </td>
+</tr>
+<!-- Fim | Call to Action -->
+ 
 <!-- Início | Banner Pós Produto -->
 {# 5. Inclui o bloco de banner full (opcional) #}
 {# A variável 'componente_bloco_05' será passada pelo Python #}
@@ -33,5 +47,8 @@
 <!-- Fim | Banner Pós Produto -->
 
 <!-- Início | Rodapé -->
+{% if componente_bloco_cupom %}
+    {% include 'components/' ~ componente_bloco_cupom ~ '.html' %}
+{% endif %}
 {# 6. Inclui o rodapé que fecha o e-mail #}
 {% include 'components/footer.html' %}

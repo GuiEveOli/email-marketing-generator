@@ -91,22 +91,79 @@
                 <!-- Seleção de Componentes -->
                 <div class="config-group">
                     <h2>3. Seleção de Componentes</h2>
-                    <div class="form-group">
-                        <label for="componente_bloco_03">Banners Pré Produtos</label>
-                        <select id="componente_bloco_03" name="componente_bloco_03" onchange="atualizarPreview()">
-                            <option value="">Nenhum</option>
-                            <option value="bloco_03_categorias_1x1">1x1</option>
-                            <option value="bloco_03_categorias_1x2">1x2</option>
-                            <option value="bloco_03_categorias_2_colunas">2x1</option>
-                        </select>
-                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="componente_bloco_03">
+                                <span style="font-weight: 600;">Banners Pré Produtos</span>
+                                <small style="display: block; color: #6b7280; font-weight: 400; margin-top: 2px;">Banners que aparecem antes dos produtos</small>
+                            </label>
+                            <div class="custom-dropdown" data-dropdown="bloco_03">
+                                <div class="custom-dropdown-selected">
+                                    <span class="selected-text">Nenhum banner</span>
+                                    <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none">
+                                        <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </div>
+                                <div class="custom-dropdown-options">
+                                    <div class="dropdown-option" data-value="">
+                                        <span class="option-text">Nenhum banner</span>
+                                    </div>
+                                    <div class="dropdown-option" data-value="bloco_03_categorias_1x1">
+                                        <span class="option-text">1x1</span>
+                                    </div>
+                                    <div class="dropdown-option" data-value="bloco_03_categorias_1x2">
+                                        <span class="option-text">1x2</span>
+                                    </div>
+                                    <div class="dropdown-option" data-value="bloco_03_categorias_1x4">
+                                        <span class="option-text">1x4</span>
+                                    </div>
+                                    <div class="dropdown-option" data-value="bloco_03_categorias_2x1">
+                                        <span class="option-text">2x1</span>
+                                    </div>
+                                    <div class="dropdown-option" data-value="bloco_03_categorias_2x2">
+                                        <span class="option-text">2x2</span>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="componente_bloco_03" name="componente_bloco_03" value="">
+                            </div>
+                            
+                        </div>
 
-                    <div class="form-group">
-                        <label for="componente_bloco_05">Banners Pós Produtos</label>
-                        <select id="componente_bloco_05" name="componente_bloco_05" onchange="atualizarPreview()">
-                            <option value="">Nenhum</option>
-                            <option value="bloco_05_banner_full">1x1</option>
-                        </select>
+                        <div class="form-group">
+                            <label for="componente_bloco_05">
+                                <span style="font-weight: 600;">Banners Pós Produtos</span>
+                                <small style="display: block; color: #6b7280; font-weight: 400; margin-top: 2px;">Banners que aparecem depois dos produtos</small>
+                            </label>
+                            <div class="custom-dropdown" data-dropdown="bloco_05">
+                                <div class="custom-dropdown-selected">
+                                    <span class="selected-text">Nenhum banner</span>
+                                    <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none">
+                                        <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </div>
+                                <div class="custom-dropdown-options">
+                                    <div class="dropdown-option" data-value="">
+                                        <span class="option-text">Nenhum banner</span>
+                                    </div>
+                                    <div class="dropdown-option" data-value="bloco_05_banner_full">
+                                        <span class="option-text">1x1</span>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="componente_bloco_05" name="componente_bloco_05" value="">
+                            </div>
+                            
+                        </div>
+                        <div class="form-group">
+                            <label for="toggle-cupom">Email Com Cupom?</label>
+                            <div class="toggle-switch-wrapper">
+                                <input type="checkbox" id="toggle-cupom" class="toggle-switch-input" onchange="toggleCupom()">
+                                <label for="toggle-cupom" class="toggle-switch-label">
+                                    <span class="toggle-switch-inner"></span>
+                                    <span class="toggle-switch-switch"></span>
+                                </label>
+                            </div>
+                            <input type="hidden" name="componente_bloco_cupom" id="componente_bloco_cupom" value="">
+                        </div>
                     </div>
                 </div>
 
@@ -193,6 +250,7 @@
             const previewContainer = document.getElementById('previewContainer');
             const bloco03 = document.getElementById('componente_bloco_03').value;
             const bloco05 = document.getElementById('componente_bloco_05').value;
+            const blocoCupom = document.getElementById('componente_bloco_cupom').value;
             const corBotao = document.getElementById('cor_botao_hex').value;
 
             let html = '<div class="email-preview">';
@@ -217,14 +275,32 @@
                         <img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">
                         <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
                     `;
-                } else if (bloco03 === 'bloco_03_categorias_2_colunas') {
+
+                } else if (bloco03 === 'bloco_03_categorias_1x4') {
+                    html += `
+                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">
+                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
+                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
+                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
+                    `;         
+                } else if (bloco03 === 'bloco_03_categorias_2x1') {
                     html += `
                         <div style="display: flex; gap: 4px; width: 100%;">
                             <img src="https://placehold.co/300x400/png" style="width: 48%; display: block;">
                             <img src="https://placehold.co/300x400/png" style="width: 48%; display: block;">
                         </div>
                     `;
+                } else if (bloco03 === 'bloco_03_categorias_2x2') {
+                    html += `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 100%;">
+                            <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
+                            <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
+                            <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
+                            <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
+                        </div>
+                    `;
                 }
+
                 html += `</div>`;
             }
 
@@ -268,7 +344,7 @@
                 }
                 html += `</div>`;
             }
-
+            
             // Call to Action
             html += `
                 <div class="preview-block">
@@ -278,6 +354,15 @@
                     </div>
                 </div>
             `;
+
+            // Banner Cupom Explicativo
+            if (blocoCupom === 'bloco_cupom_explicativo') {
+                html += `
+                    <div class="preview-block preview-banner-pos">
+                        <img src="{{ url_for('static', filename='img/cupom_explicativo.png') }}" alt="Banner de Cupom" style="width: 100%; display: block;">
+                    </div>
+                `;
+            }
 
             // Footer fixo
             html += `
@@ -641,12 +726,16 @@
                 };
             });
 
+            // Captura o valor do cupom selecionado
+            const cupomSelecionado = document.getElementById('componente_bloco_cupom').value || '';
+
             const dados = {
                 produtos: produtosComClube,
                 utm_source: document.getElementById('utm_source').value,
                 utm_campaign: document.getElementById('utm_campaign').value,
                 componente_bloco_03: document.getElementById('componente_bloco_03').value,
                 componente_bloco_05: document.getElementById('componente_bloco_05').value,
+                componente_bloco_cupom: cupomSelecionado,
                 cor_botao: corBotao
             };
 
@@ -686,6 +775,88 @@
 
         // Inicializar preview vazio
         atualizarPreview();
+
+        function toggleCupom() {
+            const toggle = document.getElementById('toggle-cupom');
+            const hiddenInput = document.getElementById('componente_bloco_cupom');
+            
+            if (toggle.checked) {
+                hiddenInput.value = 'bloco_cupom_explicativo';
+            } else {
+                hiddenInput.value = '';
+            }
+            
+            atualizarPreview();
+        }
+
+        // Adicionar após a declaração das variáveis globais
+        
+        // Inicializa os dropdowns customizados
+        function initCustomDropdowns() {
+            document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+                const selected = dropdown.querySelector('.custom-dropdown-selected');
+                const optionsContainer = dropdown.querySelector('.custom-dropdown-options');
+                const options = dropdown.querySelectorAll('.dropdown-option');
+                const hiddenInput = dropdown.querySelector('input[type="hidden"]');
+                const dropdownId = dropdown.dataset.dropdown;
+                
+                // Toggle dropdown ao clicar
+                selected.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    
+                    // Fecha outros dropdowns abertos
+                    document.querySelectorAll('.custom-dropdown').forEach(d => {
+                        if (d !== dropdown) {
+                            d.classList.remove('open');
+                        }
+                    });
+                    
+                    dropdown.classList.toggle('open');
+                });
+                
+                // Selecionar opção
+                options.forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        
+                        const value = option.dataset.value;
+                        const text = option.querySelector('.option-text').textContent;
+                        
+                        // Atualiza o texto selecionado (SEM ícone)
+                        const selectedTextEl = selected.querySelector('.selected-text');
+                        selectedTextEl.textContent = text;
+                        selectedTextEl.setAttribute('title', text); // tooltip com texto completo
+                        
+                        // Atualiza o input hidden
+                        hiddenInput.value = value;
+                        
+                        // Remove seleção anterior
+                        options.forEach(opt => opt.classList.remove('selected'));
+                        
+                        // Adiciona seleção na opção clicada
+                        option.classList.add('selected');
+                        
+                        // Fecha o dropdown
+                        dropdown.classList.remove('open');
+                        
+                        // Atualiza preview
+                        atualizarPreview();
+                    });
+                });
+            });
+            
+            // Fecha dropdown ao clicar fora
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+                    dropdown.classList.remove('open');
+                });
+            });
+        }
+        
+        // Chamar após o DOM carregar
+        document.addEventListener('DOMContentLoaded', () => {
+            initCustomDropdowns();
+        });
     </script>
 </body>
 </html>
