@@ -2,83 +2,272 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Gerador de Estrutura de Pastas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organizador de Pastas</title>
+    <!-- SheetJS (xlsx.js) para ler arquivos Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- JSZip.js para criar arquivos .zip -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <style>
-        /* Estilos adicionais para esta página específica */
-        .container {
-            max-width: 700px;
-            margin: 2rem auto;
-            padding: 2rem;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 1.5rem;
-        }
-        form label {
-            display: block;
-            margin-bottom: .5rem;
-            font-weight: bold;
-        }
-        form input[type="file"], form input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 1.5rem;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        form button {
-            width: 100%;
-            padding: 12px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        form button:hover {
-            background-color: #0056b3;
-        }
-        .back-link {
-            display: block;
-            text-align: center;
-            margin-top: 2rem;
-        }
-    </style>
 </head>
-<body>
+<body class="organizador-page">
 
-    <header class="top-nav">
-        <div class="nav-inner">
-            <a href="/" class="brand">🛠️ Ferramentas</a>
-            <nav class="nav-links">
-                <a href="/" class="{% if current == '/' %}active{% endif %}">Hub</a>
-                <a href="/gerador" class="{% if current.startswith('/gerador') %}active{% endif %}">Gerador</a>
-                <a href="/skuconsult" class="{% if current.startswith('/skuconsult') %}active{% endif %}">SKU Consult</a>
-            </nav>
+    <main>
+
+        <header class="top-nav-organizador" style="padding: 8px 0;">
+            <div class="nav-inner">
+                <nav class="nav-links">
+                    <a href="/" class="{% if current == '/' %}active{% endif %}">Hub</a>
+                    <a href="/gerador" class="{% if current.startswith('/gerador') %}active{% endif %}">Gerador</a>
+                    <a href="/skuconsult" class="{% if current.startswith('/skuconsult') %}active{% endif %}">SKU Consult</a>
+                    <a href="/organizador" class="{% if current.startswith('/organizador') %}active{% endif %}">Organizador</a>
+                </nav>
+            </div>
+        </header>
+
+
+        <div class="container">
+            <div class="card" style="padding: 40px 60px;">
+                <h1 class="page-title">Organizador de Pastas</h1>
+                
+                <form class="form-group">
+                    <!-- Passo 1: Upload do Excel -->
+                    <div class="form-field">
+                        <label for="excel_file" class="form-label">
+                            <strong>1.</strong> Arquivo Excel (.xlsx)
+                        </label>
+                        <input type="file" id="excel_file" accept=".xlsx, .xls" class="file-input">
+                        <small class="form-hint">Selecione o arquivo Excel com a estrutura de pastas</small>
+                    </div>
+
+                    <!-- Passo 2: Nome da Coluna -->
+                    <div class="form-field">
+                        <label for="creative_column" class="form-label">
+                            <strong>2.</strong> Nome da Coluna do Criativo
+                        </label>
+                        <input 
+                            type="text" 
+                            id="creative_column" 
+                            placeholder="Ex: Nome do Criativo, Peça, etc." 
+                            class="input-field"
+                        >
+                        <small class="form-hint">Digite exatamente como aparece no cabeçalho da planilha</small>
+                    </div>
+
+                    <!-- Área de Status e Erros -->
+                    <div id="status" class="status-message" role="alert" style="display: none;"></div>
+
+                    <!-- Passo 3: Botão de Ação -->
+                    <button type="button" id="process_button" class="btn btn-primary">
+                        🚀 Gerar Pastas (.zip)
+                    </button>
+                </form>
+            </div>
         </div>
-    </header>
-    <div class="container">
-        <h1>Gerador de Estrutura de Pastas</h1>
-        <p>Faça o upload da planilha para criar uma estrutura de pastas organizadas por dinâmica e criativo. <strong>Esta ferramenta não baixa as imagens.</strong></p>
         
-        <form action="{{ url_for('processar_imagens') }}" method="post" enctype="multipart/form-data">
-            
-            <label for="excel_file">1. Selecione a planilha (.xlsx):</label>
-            <input type="file" name="excel_file" id="excel_file" accept=".xlsx" required>
-            
-            <label for="creative_column">2. Nome da coluna do Criativo (Ex: Criativo Chamada):</label>
-            <input type="text" name="creative_column" id="creative_column" required>
-            
-            <button type="submit">Gerar e Baixar Pastas (.zip)</button>
-        </form>
+    </main>
 
-        <a href="{{ url_for('index') }}" class="back-link">Voltar para o Início</a>
-    </div>
+    <script>
+        // Pega os elementos do DOM
+        const fileInput = document.getElementById('excel_file');
+        const columnInput = document.getElementById('creative_column');
+        const processButton = document.getElementById('process_button');
+        const statusDiv = document.getElementById('status');
+
+        // Adiciona o listener ao botão
+        processButton.addEventListener('click', handleProcessing);
+
+        async function handleProcessing() {
+            // Pega os inputs do usuário
+            const excelFile = fileInput.files[0];
+            const creativeColumn = columnInput.value.trim();
+
+            // --- 1. Validação ---
+            if (!excelFile || !creativeColumn) {
+                showStatus('Arquivo Excel e nome da coluna são obrigatórios.', true);
+                return;
+            }
+
+            // Desabilita o botão e mostra status
+            setLoading(true, 'Lendo arquivo...');
+
+            try {
+                // --- 2. Funções de Normalização (portadas do Python) ---
+
+                /**
+                 * Normaliza texto para correspondência de cabeçalho (minúsculo, sem acentos).
+                 * Equivalente a `_norm` do Python.
+                 */
+                function _norm(s) {
+                    s = String(s || '').trim().toLowerCase();
+                    // Remove acentos (diacríticos)
+                    return s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+                }
+
+                /**
+                 * Limpa um nome para ser seguro como nome de arquivo/pasta.
+                 * Equivalente a `safe` do Python.
+                 */
+                function safe(name) {
+                    name = String(name || '').trim();
+                    if (!name) return '';
+                    
+                    // Remove acentos
+                    name = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+                    // Substitui / por -
+                    name = name.replace(/\//g, '-');
+                    // Remove caracteres inválidos (mantém A-Z, a-z, 0-9, -, _, ., espaço)
+                    name = name.replace(/[^A-Za-z0-9\-\._ ]/g, '');
+                    // Substitui múltiplos espaços por um
+                    name = name.replace(/\s+/g, ' ').trim();
+                    // Limita o tamanho
+                    return name.substring(0, 120);
+                }
+
+                // --- 3. Leitura do Excel (usando SheetJS) ---
+                const data = await excelFile.arrayBuffer();
+                const workbook = XLSX.read(data);
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                
+                // Converte para array de arrays (header: 1) para ser similar ao iter_rows
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                if (rows.length < 2) {
+                    throw new Error('Planilha está vazia ou não tem cabeçalho.');
+                }
+
+                // --- 4. Processamento dos Cabeçalhos ---
+                setLoading(true, 'Processando colunas...');
+                
+                const headers = rows[0].map(h => String(h || '').trim());
+                const headerNormMap = new Map(headers.map(h => [_norm(h), h]));
+
+                // 4a. Resolve coluna do Criativo
+                const normCreativeColumn = _norm(creativeColumn);
+                let colCreativeName = headerNormMap.get(normCreativeColumn);
+
+                // Tenta correspondência parcial (se não achar exato)
+                if (!colCreativeName) {
+                    for (const [normHeader, origHeader] of headerNormMap.entries()) {
+                        if (normHeader.includes(normCreativeColumn)) {
+                            colCreativeName = origHeader;
+                            break;
+                        }
+                    }
+                }
+
+                if (!colCreativeName) {
+                    throw new Error(`Coluna do Criativo não encontrada: "${creativeColumn}"`);
+                }
+
+                // 4b. Tenta detectar coluna "Dinâmica"
+                const dinamicaAliases = ['dinamica', 'dinâmica', 'categoria', 'campanha', 'grupo', 'etiqueta', 'pasta'];
+                let colDinamicaName = null;
+                for (const alias of dinamicaAliases) {
+                    if (headerNormMap.has(alias)) {
+                        colDinamicaName = headerNormMap.get(alias);
+                        break;
+                    }
+                }
+
+                // 4c. Pega os índices das colunas
+                const idxCreative = headers.indexOf(colCreativeName);
+                const idxDinamica = colDinamicaName ? headers.indexOf(colDinamicaName) : -1;
+
+                // --- 5. Criação da Estrutura do ZIP (usando JSZip) ---
+                setLoading(true, 'Criando estrutura de pastas...');
+                
+                const zip = new JSZip();
+                const createdPaths = new Set(); // Para evitar duplicar o .keep
+
+                // Começa da linha 1 (índice 1) para pular o cabeçalho
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue; // Pula linhas vazias
+
+                    const creativeVal = safe(row[idxCreative]);
+                    if (!creativeVal) {
+                        continue; // Pula se o criativo for vazio
+                    }
+
+                    // Dinâmica em MAIÚSCULO
+                    const dinamicaVal = (idxDinamica !== -1 ? safe(row[idxDinamica]) : '').toUpperCase();
+
+                    let finalPath = '';
+                    if (dinamicaVal) {
+                        finalPath += dinamicaVal + '/';
+                    }
+                    finalPath += creativeVal + '/'; // JSZip usa '/' como separador
+
+                    // Cria o .keep para garantir que a pasta exista no zip
+                    if (!createdPaths.has(finalPath)) {
+                        zip.file(finalPath + '.keep', ''); // Adiciona arquivo .keep vazio
+                        createdPaths.add(finalPath);
+                    }
+                }
+
+                if (createdPaths.size === 0) {
+                    throw new Error('Nenhuma pasta foi criada. Verifique sua planilha e o nome da coluna.');
+                }
+
+                // --- 6. Geração e Download do .zip ---
+                setLoading(true, 'Gerando arquivo .zip...');
+
+                // Define o nome do arquivo zip
+                const origName = excelFile.name.split('.').slice(0, -1).join('.');
+                const zipNameBase = safe(origName) || 'pastas';
+                const zipFileName = `${zipNameBase}.zip`;
+
+                const content = await zip.generateAsync({ type: 'blob' });
+
+                // Cria um link temporário para o download
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = zipFileName;
+                
+                // Adiciona, clica e remove o link
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Limpa o objeto URL
+                URL.revokeObjectURL(link.href);
+                
+                showStatus(`Sucesso! ${createdPaths.size} pastas criadas em ${zipFileName}`, false);
+
+            } catch (error) {
+                console.error('Erro no processamento:', error);
+                showStatus(`Erro: ${error.message}`, true);
+            } finally {
+                // Reabilita o botão
+                setLoading(false);
+            }
+        }
+
+        /**
+         * Controla o estado de carregamento do botão e da mensagem de status.
+         */
+        function setLoading(isLoading, message = '') {
+            processButton.disabled = isLoading;
+            if (isLoading) {
+                processButton.textContent = message || 'Processando...';
+                statusDiv.textContent = message;
+                statusDiv.className = 'status-message status-info';
+                statusDiv.style.display = 'block';
+            } else {
+                processButton.textContent = '🚀 Gerar Pastas (.zip)';
+            }
+        }
+
+        /**
+         * Mostra uma mensagem de status final (erro ou sucesso).
+         */
+        function showStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.className = isError ? 'status-message status-error' : 'status-message status-success';
+            statusDiv.style.display = 'block';
+        }
+
+    </script>
 </body>
 </html>
