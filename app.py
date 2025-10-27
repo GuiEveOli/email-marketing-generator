@@ -758,10 +758,19 @@ def gerar_email():
         
         utm_source = data.get('utm_source', 'email-mkt')
         utm_campaign = data.get('utm_campaign', 'sem-campanha')
+        cta_url = data.get('cta_url', 'https://www.superkoch.com.br/promocoes')
+        preheader_text = data.get('preheader_text', 'Peça até as 15h e receba HOJE. Sujeito a disponibilidade.')
+        apenas_produtos = data.get('apenas_produtos', '') == 'true'
         bloco_03_selecionado = data.get('componente_bloco_03')
         bloco_05_selecionado = data.get('componente_bloco_05')
-        bloco_cupom_selecionado = data.get('componente_bloco_cupom', '')  # Corrigido: valor padrão vazio
+        bloco_cupom_selecionado = data.get('componente_bloco_cupom', '')
         cor_botao = data.get('cor_botao', '#ff0000')
+        
+        # Se "apenas produtos" estiver ativo, limpa os outros componentes
+        if apenas_produtos:
+            bloco_03_selecionado = None
+            bloco_05_selecionado = None
+            bloco_cupom_selecionado = ''
         
         # Valida formato hexadecimal
         if not re.match(r'^#[0-9A-Fa-f]{6}$', cor_botao):
@@ -773,15 +782,24 @@ def gerar_email():
         print(f"✓ Recebidos {len(produtos_selecionados)} produtos para processar.")
         print(f"✓ UTM Source: {utm_source}")
         print(f"✓ UTM Campaign: {utm_campaign}")
+        print(f"✓ CTA URL: {cta_url}")
+        print(f"✓ Preheader: {preheader_text}")
+        print(f"✓ Apenas Produtos: {'Sim' if apenas_produtos else 'Não'}")
         print(f"✓ Bloco Cupom: {'Sim' if bloco_cupom_selecionado else 'Não selecionado'}")
         print(f"✓ Cor do botão: {cor_botao}")
+        
+        # Adiciona UTM ao CTA
+        cta_url_com_utm = adicionar_utm_na_url(cta_url, utm_source, "todas as ofertas", utm_campaign)
         
         print("→ Renderizando template base...")
         template_para_produtos = render_template(
             'email_layout.html', 
             componente_bloco_03=bloco_03_selecionado, 
             componente_bloco_05=bloco_05_selecionado,
-            componente_bloco_cupom=bloco_cupom_selecionado
+            componente_bloco_cupom=bloco_cupom_selecionado,
+            cta_url=cta_url_com_utm,
+            preheader_text=preheader_text,
+            apenas_produtos=apenas_produtos
         )
         
         print("→ Iniciando busca de produtos...")

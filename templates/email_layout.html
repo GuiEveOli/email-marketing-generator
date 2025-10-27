@@ -1,22 +1,26 @@
-{# 1. Inclui o header com todo o CSS #}
-{% include 'components/header.html' %}
+{% include 'components/head.html' %}
+
+{% if not apenas_produtos %}
+    {% include 'components/header_body.html' %}
+{% endif %}
+
+{% include 'components/table_start.html' %}
+
+{% if not apenas_produtos %}
 
 <!-- Início | Banners Principal + Entrega -->
-{# 2. Inclui os blocos que são sempre fixos #}
 {% include 'components/bloco_01_banners_principais.html' %}
 {% include 'components/bloco_02_banner_entrega.html' %}
 <!-- Fim | Banners Principal + Entrega -->
 
 <!-- Início | Banners Pré Produto -->
-{# 3. Inclui o bloco de categorias dinamicamente #}
-{# A variável 'componente_bloco_03' será passada pelo Python (app.py) #}
 {% if componente_bloco_03 %}
     {% include 'components/' ~ componente_bloco_03 ~ '.html' %}
 {% endif %}
 <!-- Fim | Banners Pré Produto -->
+{% endif %}
 
 <!-- Início | Produtos -->
-{# 4. O espaço reservado para os produtos (Bloco 04) #}
 <tr>
     <td align="center" valign="top" style="font-size: 0; padding: 0;">
         <!-- PRODUTOS_AQUI -->
@@ -24,13 +28,20 @@
 </tr>
 <!-- Fim | Produtos -->
 
+{% if not apenas_produtos %}
 <!-- Início | Call to Action -->
 <tr>
     <td align="center">
         <table border="0" cellspacing="0" cellpadding="0" style="margin: 20px auto;">
             <tbody>
                 <tr>
-                    <td align="center" style="border-radius: 52px;" bgcolor="#ff0000"><a target="_blank" style="font-size: 16px; font-family: Arial, sans-serif; color: #ffffff; text-decoration: none;border-radius: 52px; padding: 15px 25px; display: inline-block;" href="https://www.superkoch.com.br/promocoes?utm_campaign=encarte+13%2F10&amp;utm_medium=todas+as+ofertas&amp;utm_source=email-mkt">Ver todas as ofertas</a></td>
+                    <td align="center" style="border-radius: 52px;" bgcolor="#ff0000">
+                        <a target="_blank" 
+                           style="font-size: 16px; font-family: Arial, sans-serif; color: #ffffff; text-decoration: none; border-radius: 52px; padding: 15px 25px; display: inline-block;" 
+                           href="{{ cta_url }}">
+                            Ver todas as ofertas
+                        </a>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -39,8 +50,6 @@
 <!-- Fim | Call to Action -->
  
 <!-- Início | Banner Pós Produto -->
-{# 5. Inclui o bloco de banner full (opcional) #}
-{# A variável 'componente_bloco_05' será passada pelo Python #}
 {% if componente_bloco_05 %}
     {% include 'components/' ~ componente_bloco_05 ~ '.html' %}
 {% endif %}
@@ -50,5 +59,7 @@
 {% if componente_bloco_cupom %}
     {% include 'components/' ~ componente_bloco_cupom ~ '.html' %}
 {% endif %}
-{# 6. Inclui o rodapé que fecha o e-mail #}
 {% include 'components/footer.html' %}
+{% endif %}
+
+{% include 'components/body_end.html' %}

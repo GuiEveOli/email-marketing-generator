@@ -67,7 +67,8 @@
                 <!-- Configuração de UTM -->
                 <div class="config-group">
                     <h2>2. Configuração de UTM</h2>
-                    <div class="form-group">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
                         <label>Fonte da Campanha</label>
                         <input 
                             type="text" 
@@ -76,9 +77,9 @@
                             placeholder="ex: email-mkt, social media..."
                             value="email-mkt"
                         >
-                    </div>
+                        </div>
 
-                    <div class="form-group">
+                        <div class="form-group">
                         <label>Nome da campanha</label>
                         <input 
                             type="text" 
@@ -87,17 +88,43 @@
                             placeholder="ex: promo-verao, super barato..."
                             value=""
                         >
+                         </div>
+
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>URL do CTA "Ver todas as ofertas"</label>
+                            <input 
+                                type="url" 
+                                name="cta_url" 
+                                id="cta_url" 
+                                placeholder="https://www.superkoch.com.br/promocoes"
+                                value="https://www.superkoch.com.br/promocoes"
+                            >
+                            <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">URL do botão principal. Os UTMs serão adicionados automaticamente.</small>
+                        </div> 
                     </div>
+                    
                 </div>
 
                 <!-- Seleção de Componentes -->
                 <div class="config-group">
                     <h2>3. Seleção de Componentes</h2>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Texto do Preheader</label>
+                            <input 
+                                type="text" 
+                                name="preheader_text" 
+                                id="preheader_text" 
+                                placeholder="Peça até as 15h e receba HOJE. Sujeito a disponibilidade."
+                                value="Peça até as 15h e receba HOJE. Sujeito a disponibilidade."
+                            >
+                            <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">Texto que aparece no preview do email (oculto no corpo).</small>
+                        </div>
+
                         <div class="form-group">
                             <label for="componente_bloco_03">
                                 <span style="font-weight: 600;">Banners Pré Produtos</span>
-                                <small style="display: block; color: #6b7280; font-weight: 400; margin-top: 2px;">Banners que aparecem antes dos produtos</small>
+                                <small style="display: block; color: #6b7280; font-weight: 400; margin-top: 2px;">Banners antes dos produtos</small>
                             </label>
                             <div class="custom-dropdown" data-dropdown="bloco_03">
                                 <div class="custom-dropdown-selected">
@@ -134,7 +161,7 @@
                         <div class="form-group">
                             <label for="componente_bloco_05">
                                 <span style="font-weight: 600;">Banners Pós Produtos</span>
-                                <small style="display: block; color: #6b7280; font-weight: 400; margin-top: 2px;">Banners que aparecem depois dos produtos</small>
+                                <small style="display: block; color: #6b7280; font-weight: 400; margin-top: 2px;">Banners depois dos produtos</small>
                             </label>
                             <div class="custom-dropdown" data-dropdown="bloco_05">
                                 <div class="custom-dropdown-selected">
@@ -165,6 +192,17 @@
                                 </label>
                             </div>
                             <input type="hidden" name="componente_bloco_cupom" id="componente_bloco_cupom" value="">
+                        </div>
+                        <div class="form-group">
+                            <label for="toggle-apenas-produtos">Apenas produtos</label>
+                            <div class="toggle-switch-wrapper">
+                                <input type="checkbox" id="toggle-apenas-produtos" class="toggle-switch-input" onchange="toggleApenasProdutos()">
+                                <label for="toggle-apenas-produtos" class="toggle-switch-label">
+                                    <span class="toggle-switch-inner"></span>
+                                    <span class="toggle-switch-switch"></span>
+                                </label>
+                            </div>
+                            <input type="hidden" name="apenas_produtos" id="apenas_produtos" value="">
                         </div>
                     </div>
                 </div>
@@ -253,63 +291,65 @@
             const bloco03 = document.getElementById('componente_bloco_03').value;
             const bloco05 = document.getElementById('componente_bloco_05').value;
             const blocoCupom = document.getElementById('componente_bloco_cupom').value;
+            const apenasProdutos = document.getElementById('apenas_produtos').value === 'true';
             const corBotao = document.getElementById('cor_botao_hex').value;
 
             let html = '<div class="email-preview">';
 
-            // Header fixo
-            html += `
-                <div class="preview-block preview-header-block">
-                    <div style="text-align: center;">
-                        <img src="https://placehold.co/600x400/png" alt="Banner" style="width: 100%;">
-                        <img src="{{ url_for('static', filename='img/receba-mesmo-dia.png') }}" alt="Receba no mesmo dia" style="width: 100%; padding: 8px">
+            // Se "apenas produtos" estiver ativo, pula header/footer/banners
+            if (!apenasProdutos) {
+                // Header fixo
+                html += `
+                    <div class="preview-block preview-header-block">
+                        <div style="text-align: center;">
+                            <img src="https://placehold.co/600x400/png" alt="Banner" style="width: 100%;">
+                            <img src="{{ url_for('static', filename='img/receba-mesmo-dia.png') }}" alt="Receba no mesmo dia" style="width: 100%; padding: 8px">
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
 
-            // Banner Pré Produtos
-            if (bloco03) {
-                html += `<div class="preview-block preview-banner-pre">`;
-                if (bloco03 === 'bloco_03_categorias_1x1') {
-                    html += `<img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">`;
-                } else if (bloco03 === 'bloco_03_categorias_1x2') {
-                    html += `
-                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">
-                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
-                    `;
-
-                } else if (bloco03 === 'bloco_03_categorias_1x4') {
-                    html += `
-                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">
-                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
-                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
-                        <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
-                    `;         
-                } else if (bloco03 === 'bloco_03_categorias_2x1') {
-                    html += `
-                        <div style="display: flex; gap: 4px; width: 100%;">
-                            <img src="https://placehold.co/300x400/png" style="width: 48%; display: block;">
-                            <img src="https://placehold.co/300x400/png" style="width: 48%; display: block;">
-                        </div>
-                    `;
-                } else if (bloco03 === 'bloco_03_categorias_2x2') {
-                    html += `
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 100%;">
-                            <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
-                            <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
-                            <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
-                            <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
-                        </div>
-                    `;
+                // Banner Pré Produtos
+                if (bloco03) {
+                    html += `<div class="preview-block preview-banner-pre">`;
+                    if (bloco03 === 'bloco_03_categorias_1x1') {
+                        html += `<img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">`;
+                    } else if (bloco03 === 'bloco_03_categorias_1x2') {
+                        html += `
+                            <img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">
+                            <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
+                        `;
+                    } else if (bloco03 === 'bloco_03_categorias_1x4') {
+                        html += `
+                            <img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">
+                            <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
+                            <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
+                            <img src="https://placehold.co/600x150/png" style="width: 100%; display: block; margin-top: 4px;">
+                        `;         
+                    } else if (bloco03 === 'bloco_03_categorias_2x1') {
+                        html += `
+                            <div style="display: flex; gap: 4px; width: 100%;">
+                                <img src="https://placehold.co/300x400/png" style="width: 48%; display: block;">
+                                <img src="https://placehold.co/300x400/png" style="width: 48%; display: block;">
+                            </div>
+                        `;
+                    } else if (bloco03 === 'bloco_03_categorias_2x2') {
+                        html += `
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; width: 100%;">
+                                <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
+                                <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
+                                <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
+                                <img src="https://placehold.co/300x300/png" style="width: 100%; display: block;">
+                            </div>
+                        `;
+                    }
+                    html += `</div>`;
                 }
-
-                html += `</div>`;
             }
 
-            // Produtos
+            // Produtos (sempre mostrado)
             if (produtosSelecionados.length > 0) {
                 html += `<div class="preview-block preview-produtos">`;
-                html += `<div style="background: #f5f5f5; padding: 0; text-align: center;">`;
+                html += `<div style="background: ${apenasProdutos ? 'white' : '#f5f5f5'}; padding: 0; text-align: center;">`;
                 html += `</div>`;
                 
                 // Grid de 2 colunas
@@ -338,42 +378,45 @@
                 html += `</div>`; // Fecha preview-produtos
             }
 
-            // Banner Pós Produtos
-            if (bloco05) {
-                html += `<div class="preview-block preview-banner-pos">`;
-                if (bloco05 === 'bloco_05_banner_full') {
-                    html += `<img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">`;
+            // Continua apenas se NÃO for "apenas produtos"
+            if (!apenasProdutos) {
+                // Banner Pós Produtos
+                if (bloco05) {
+                    html += `<div class="preview-block preview-banner-pos">`;
+                    if (bloco05 === 'bloco_05_banner_full') {
+                        html += `<img src="https://placehold.co/600x150/png" style="width: 100%; display: block;">`;
+                    }
+                    html += `</div>`;
                 }
-                html += `</div>`;
-            }
-            
-            // Call to Action
-            html += `
-                <div class="preview-block">
-                    <div style="display: flex; justify-content: center; padding: 12px;">
-                        <a target="_blank" style="font-size: 12px; color: #ffffff; background-color: #ff0000; text-decoration: none; border-radius: 52px; padding: 7px 13px; display: inline-block;" href="">Ver todas as ofertas
-                        </a>
-                    </div>
-                </div>
-            `;
-
-            // Banner Cupom Explicativo
-            if (blocoCupom === 'bloco_cupom_explicativo') {
+                
+                // Call to Action
                 html += `
-                    <div class="preview-block preview-banner-pos">
-                        <img src="{{ url_for('static', filename='img/cupom_explicativo.png') }}" alt="Banner de Cupom" style="width: 100%; display: block;">
+                    <div class="preview-block">
+                        <div style="display: flex; justify-content: center; padding: 12px;">
+                            <a target="_blank" style="font-size: 12px; color: #ffffff; background-color: #ff0000; text-decoration: none; border-radius: 52px; padding: 7px 13px; display: inline-block;" href="">Ver todas as ofertas
+                            </a>
+                        </div>
+                    </div>
+                `;
+
+                // Banner Cupom Explicativo
+                if (blocoCupom === 'bloco_cupom_explicativo') {
+                    html += `
+                        <div class="preview-block preview-banner-pos">
+                            <img src="{{ url_for('static', filename='img/cupom_explicativo.png') }}" alt="Banner de Cupom" style="width: 100%; display: block;">
+                        </div>
+                    `;
+                }
+
+                // Footer fixo
+                html += `
+                    <div class="preview-block preview-footer-block">
+                        <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 11px; color: #666;">
+                            <p style="margin: 0;">© 2025 - Todos os direitos reservados</p>
+                        </div>
                     </div>
                 `;
             }
-
-            // Footer fixo
-            html += `
-                <div class="preview-block preview-footer-block">
-                    <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 11px; color: #666;">
-                        <p style="margin: 0;">© 2025 - Todos os direitos reservados</p>
-                    </div>
-                </div>
-            `;
 
             html += '</div>';
 
@@ -712,6 +755,15 @@
                 return;
             }
 
+            const ctaUrl = document.getElementById('cta_url').value.trim();
+            if (!ctaUrl || !ctaUrl.startsWith('http')) {
+                mostrarMensagem('URL do CTA inválida. Use uma URL completa começando com http:// ou https://', 'erro');
+                document.getElementById('cta_url').focus();
+                return;
+            }
+
+            const preheaderText = document.getElementById('preheader_text').value.trim();
+
             const loading = document.getElementById('loading');
             const btnGerar = document.getElementById('btnGerar');
             
@@ -730,11 +782,15 @@
 
             // Captura o valor do cupom selecionado
             const cupomSelecionado = document.getElementById('componente_bloco_cupom').value || '';
+            const apenasProdutos = document.getElementById('apenas_produtos').value || '';
 
             const dados = {
                 produtos: produtosComClube,
                 utm_source: document.getElementById('utm_source').value,
                 utm_campaign: document.getElementById('utm_campaign').value,
+                cta_url: ctaUrl,
+                preheader_text: preheaderText,
+                apenas_produtos: apenasProdutos,
                 componente_bloco_03: document.getElementById('componente_bloco_03').value,
                 componente_bloco_05: document.getElementById('componente_bloco_05').value,
                 componente_bloco_cupom: cupomSelecionado,
@@ -781,9 +837,15 @@
         function toggleCupom() {
             const toggle = document.getElementById('toggle-cupom');
             const hiddenInput = document.getElementById('componente_bloco_cupom');
+            const toggleApenasProdutos = document.getElementById('toggle-apenas-produtos');
             
             if (toggle.checked) {
                 hiddenInput.value = 'bloco_cupom_explicativo';
+                // Se cupom for ativado, desativa "apenas produtos"
+                if (toggleApenasProdutos.checked) {
+                    toggleApenasProdutos.checked = false;
+                    document.getElementById('apenas_produtos').value = '';
+                }
             } else {
                 hiddenInput.value = '';
             }
@@ -791,8 +853,81 @@
             atualizarPreview();
         }
 
-        // Adicionar após a declaração das variáveis globais
-        
+        function toggleApenasProdutos() {
+            const toggle = document.getElementById('toggle-apenas-produtos');
+            const hiddenInput = document.getElementById('apenas_produtos');
+            const preheaderInput = document.getElementById('preheader_text');
+            
+            if (toggle.checked) {
+                // Ativa modo "apenas produtos"
+                hiddenInput.value = 'true';
+                
+                // Desativa e desabilita todos os outros componentes
+                document.getElementById('componente_bloco_03').value = '';
+                document.getElementById('componente_bloco_05').value = '';
+                document.getElementById('componente_bloco_cupom').value = '';
+                document.getElementById('toggle-cupom').checked = false;
+                
+                // Desabilita o campo de preheader
+                preheaderInput.disabled = true;
+                preheaderInput.style.opacity = '0.5';
+                preheaderInput.style.cursor = 'not-allowed';
+                
+                // Reseta os dropdowns visuais
+                document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+                    const selectedText = dropdown.querySelector('.selected-text');
+                    const options = dropdown.querySelectorAll('.dropdown-option');
+                    
+                    selectedText.textContent = 'Nenhum banner';
+                    options.forEach(opt => opt.classList.remove('selected'));
+                    options[0].classList.add('selected'); // Primeira opção (Nenhum)
+                });
+                
+                // Desabilita visualmente os controles
+                desabilitarComponentes(true);
+            } else {
+                // Desativa modo "apenas produtos"
+                hiddenInput.value = '';
+                
+                // Reabilita os controles
+                desabilitarComponentes(false);
+            }
+            
+            atualizarPreview();
+        }
+
+        function desabilitarComponentes(desabilitar) {
+            const dropdowns = document.querySelectorAll('.custom-dropdown');
+            const toggleCupom = document.getElementById('toggle-cupom');
+            const labelCupom = document.querySelector('label[for="toggle-cupom"]');
+            const preheaderInput = document.getElementById('preheader_text');
+            const preheaderLabel = preheaderInput.previousElementSibling; // pega o label
+            
+            dropdowns.forEach(dropdown => {
+                if (desabilitar) {
+                    dropdown.style.opacity = '0.5';
+                    dropdown.style.pointerEvents = 'none';
+                } else {
+                    dropdown.style.opacity = '1';
+                    dropdown.style.pointerEvents = 'auto';
+                }
+            });
+            
+            if (desabilitar) {
+                toggleCupom.disabled = true;
+                labelCupom.style.opacity = '0.5';
+                preheaderInput.disabled = true;
+                preheaderInput.style.opacity = '0.5';
+                preheaderLabel.style.opacity = '0.5';
+            } else {
+                toggleCupom.disabled = false;
+                labelCupom.style.opacity = '1';
+                preheaderInput.disabled = false;
+                preheaderInput.style.opacity = '1';
+                preheaderLabel.style.opacity = '1';
+            }
+        }
+
         // Inicializa os dropdowns customizados
         function initCustomDropdowns() {
             document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
@@ -824,10 +959,19 @@
                         const value = option.dataset.value;
                         const text = option.querySelector('.option-text').textContent;
                         
-                        // Atualiza o texto selecionado (SEM ícone)
+                        // Se algum banner for selecionado, desativa "apenas produtos"
+                        if (value !== '') {
+                            const toggleApenasProdutos = document.getElementById('toggle-apenas-produtos');
+                            if (toggleApenasProdutos.checked) {
+                                toggleApenasProdutos.checked = false;
+                                document.getElementById('apenas_produtos').value = '';
+                            }
+                        }
+                        
+                        // Atualiza o texto selecionado
                         const selectedTextEl = selected.querySelector('.selected-text');
                         selectedTextEl.textContent = text;
-                        selectedTextEl.setAttribute('title', text); // tooltip com texto completo
+                        selectedTextEl.setAttribute('title', text);
                         
                         // Atualiza o input hidden
                         hiddenInput.value = value;

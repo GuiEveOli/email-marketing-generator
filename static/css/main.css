@@ -1443,6 +1443,10 @@ body.skuconsult-page .produto-card:hover {
     border-bottom: 1px solid #f3f4f6;
 }
 
+.dropdown-option:hover {
+    background-color: #d3d3d3;
+}
+
 .option-text {
     flex: 1;
 }
