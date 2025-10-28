@@ -357,7 +357,8 @@
                 
                 produtosSelecionados.forEach((produto, index) => {
                     const badgeClube = produto.is_clube ? '<span style="background: #034abb; color: white; padding: 2px 6px; font-size: 10px; border-radius: 3px; margin-right: 4px;">CLUBE</span>' : '';
-                    const badgeExclusivo = produto.is_exclusivo ? '<span style="background: #122447; color: white; padding: 2px 6px; font-size: 10px; border-radius: 3px;">SITE</span>' : '';
+                    const badgeExclusivo = produto.is_exclusivo ? '<span style="background: #122447; color: white; padding: 2px 6px; font-size: 10px; border-radius: 3px; margin-right: 4px;">SITE</span>' : '';
+                    const badgeRelampago = produto.is_oferta_relampago ? '<span style="background: #ffd700; color: #000000; padding: 2px 6px; font-size: 10px; border-radius: 3px;">RELÂMPAGO</span>' : '';
                     
                     html += `
                         <div class="preview-produto" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background: white;">
@@ -367,7 +368,7 @@
                                 </div>
                             </div>
                             <div style="text-align: left;">
-                                <div style="margin-bottom: 5px;">${badgeClube}${badgeExclusivo}</div>
+                                <div style="margin-bottom: 5px;">${badgeClube}${badgeExclusivo}${badgeRelampago}</div>
                                 <div style="font-size: 11px; color: #333; line-height: 1.3; min-height: 40px; margin-bottom: 8px;">${produto.nome.substring(0, 50)}...</div>
                             </div>
                         </div>
@@ -489,6 +490,11 @@
                             <input type="checkbox" class="checkbox-exclusivo" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;" onchange="sincronizarCheckbox(${index}, 'exclusivo'); atualizarPreview();">
                             <span style="color: #122447; font-weight: 600;">Exclusivo Site</span>
                         </label>
+                        
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" class="checkbox-relampago" data-index="${index}" style="cursor: pointer; width: 16px; height: 16px;" onchange="sincronizarCheckbox(${index}, 'relampago'); atualizarPreview();">
+                            <span style="color: #ffcd00; font-weight: 600;">Oferta Relâmpago</span>
+                        </label>
                     </div>
                 `;
                 
@@ -508,13 +514,17 @@
         function sincronizarCheckbox(index, tipo) {
             const checkbox = tipo === 'clube' 
                 ? document.querySelector(`.checkbox-clube[data-index="${index}"]`)
-                : document.querySelector(`.checkbox-exclusivo[data-index="${index}"]`);
+                : tipo === 'exclusivo'
+                ? document.querySelector(`.checkbox-exclusivo[data-index="${index}"]`)
+                : document.querySelector(`.checkbox-relampago[data-index="${index}"]`);
             
             if (checkbox && produtosSelecionados[index]) {
                 if (tipo === 'clube') {
                     produtosSelecionados[index].is_clube = checkbox.checked;
-                } else {
+                } else if (tipo === 'exclusivo') {
                     produtosSelecionados[index].is_exclusivo = checkbox.checked;
+                } else if (tipo === 'relampago') {
+                    produtosSelecionados[index].is_oferta_relampago = checkbox.checked;
                 }
             }
         }
@@ -650,6 +660,7 @@
 
             produto.is_clube = false;
             produto.is_exclusivo = false;
+            produto.is_oferta_relampago = false;
             produtosSelecionados.push(produto);
             renderizarProdutos();
             document.getElementById('termoBusca').value = '';
@@ -773,13 +784,14 @@
             const produtosComClube = produtosSelecionados.map((produto, index) => {
                 const checkboxClube = document.querySelector(`.checkbox-clube[data-index="${index}"]`);
                 const checkboxExclusivo = document.querySelector(`.checkbox-exclusivo[data-index="${index}"]`);
+                const checkboxRelampago = document.querySelector(`.checkbox-relampago[data-index="${index}"]`);
                 return {
                     ...produto,
                     is_clube: checkboxClube ? checkboxClube.checked : false,
-                    is_exclusivo: checkboxExclusivo ? checkboxExclusivo.checked : false
+                    is_exclusivo: checkboxExclusivo ? checkboxExclusivo.checked : false,
+                    is_oferta_relampago: checkboxRelampago ? checkboxRelampago.checked : false
                 };
             });
-
             // Captura o valor do cupom selecionado
             const cupomSelecionado = document.getElementById('componente_bloco_cupom').value || '';
             const apenasProdutos = document.getElementById('apenas_produtos').value || '';

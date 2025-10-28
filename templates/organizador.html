@@ -27,8 +27,8 @@
 
 
         <div class="container">
-            <div class="card" style="padding: 40px 60px;">
-                <h1 class="page-title">Organizador de Pastas</h1>
+            <div class="card" style="padding: 20px 60px;">
+                <h1 class="page-title" style="margin-bottom: 20px;">Organizador de Pastas</h1>
                 
                 <form class="form-group">
                     <!-- Passo 1: Upload do Excel -->
@@ -37,27 +37,57 @@
                             <strong>1.</strong> Arquivo Excel (.xlsx)
                         </label>
                         <input type="file" id="excel_file" accept=".xlsx, .xls" class="file-input">
-                        <small class="form-hint">Selecione o arquivo Excel com a estrutura de pastas</small>
+                        <small class="form-hint">Selecione o arquivo Excel com a estrutura de pastas e SKUs</small>
                     </div>
 
-                    <!-- Passo 2: Nome da Coluna -->
-                    <div class="form-field">
-                        <label for="creative_column" class="form-label">
-                            <strong>2.</strong> Nome da Coluna do Criativo
-                        </label>
-                        <input 
-                            type="text" 
-                            id="creative_column" 
-                            placeholder="Ex: Nome do Criativo, Peça, etc." 
-                            class="input-field"
-                        >
-                        <small class="form-hint">Digite exatamente como aparece no cabeçalho da planilha</small>
+                    <!-- Grid para campos 2, 3 e 4 lado a lado -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                        
+                        <!-- Passo 2: Nome da Coluna do Criativo -->
+                        <div class="form-field">
+                            <label for="creative_column" class="form-label">
+                                <strong>2.</strong> Nome da Coluna do Criativo (Nível 2)
+                            </label>
+                            <input 
+                                type="text" 
+                                id="creative_column" 
+                                placeholder="Ex: Nome do Criativo, Peça, etc." 
+                                class="input-field"
+                            >
+                        </div>
+
+                        <!-- Passo 3: Nome da Coluna do SKU -->
+                        <div class="form-field">
+                            <label for="sku_column" class="form-label">
+                                <strong>3.</strong> Nome da Coluna do SKU (opcional)
+                            </label>
+                            <input 
+                                type="text" 
+                                id="sku_column" 
+                                placeholder="Ex: SKU, COD_PRODUTO, Código, etc." 
+                                class="input-field"
+                            >
+                        </div>
+
+                        <!-- Passo 4: Nome da Coluna de Vendas -->
+                        <div class="form-field">
+                            <label for="sales_column" class="form-label">
+                                <strong>4.</strong>Coluna de Vendas (opcional)
+                            </label>
+                            <input 
+                                type="text" 
+                                id="sales_column" 
+                                placeholder="Ex: Vendas, Quantidade, Total Vendido, etc." 
+                                class="input-field"
+                            >
+                        </div>
+                        
                     </div>
 
                     <!-- Área de Status e Erros -->
                     <div id="status" class="status-message" role="alert" style="display: none;"></div>
 
-                    <!-- Passo 3: Botão de Ação -->
+                    <!-- Passo 5: Botão de Ação -->
                     <button type="button" id="process_button" class="btn btn-primary">
                         🚀 Gerar Pastas (.zip)
                     </button>
@@ -71,6 +101,8 @@
         // Pega os elementos do DOM
         const fileInput = document.getElementById('excel_file');
         const columnInput = document.getElementById('creative_column');
+        const skuColumnInput = document.getElementById('sku_column');
+        const salesColumnInput = document.getElementById('sales_column');
         const processButton = document.getElementById('process_button');
         const statusDiv = document.getElementById('status');
 
@@ -81,10 +113,12 @@
             // Pega os inputs do usuário
             const excelFile = fileInput.files[0];
             const creativeColumn = columnInput.value.trim();
+            const skuColumn = skuColumnInput.value.trim();
+            const salesColumn = salesColumnInput.value.trim();
 
             // --- 1. Validação ---
             if (!excelFile || !creativeColumn) {
-                showStatus('Arquivo Excel e nome da coluna são obrigatórios.', true);
+                showStatus('Arquivo Excel e nome da coluna do criativo são obrigatórios.', true);
                 return;
             }
 
@@ -124,6 +158,73 @@
                     return name.substring(0, 120);
                 }
 
+                /**
+                 * Converte valor de vendas para número
+                 */
+                function parseVendas(valor) {
+                    if (typeof valor === 'number') return valor;
+                    if (!valor) return 0;
+                    
+                    // Remove tudo que não é número, ponto ou vírgula
+                    let numStr = String(valor).replace(/[^\d,.-]/g, '');
+                    
+                    // Substitui vírgula por ponto
+                    numStr = numStr.replace(',', '.');
+                    
+                    const num = parseFloat(numStr);
+                    return isNaN(num) ? 0 : num;
+                }
+
+                /**
+                 * Busca e baixa a imagem do produto via webscraping
+                 * (mesmo método do gerador de emails)
+                 */
+                async function baixarImagemPorSKU(sku) {
+                    try {
+                        const response = await fetch('/api/buscar-e-baixar-imagem-produto', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ sku: sku })
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({}));
+                            console.warn(`Erro ao baixar imagem para SKU ${sku}:`, errorData.error || response.statusText);
+                            return null;
+                        }
+                        
+                        const blob = await response.blob();
+                        
+                        // Verifica se realmente é uma imagem
+                        if (blob.size === 0 || !blob.type.startsWith('image/')) {
+                            console.warn(`SKU ${sku}: blob inválido (tipo: ${blob.type}, tamanho: ${blob.size})`);
+                            return null;
+                        }
+                        
+                        return blob;
+                    } catch (error) {
+                        console.warn(`Erro ao processar imagem do SKU ${sku}:`, error);
+                        return null;
+                    }
+                }
+
+                /**
+                 * Detecta a extensão da imagem a partir do blob
+                 */
+                function getExtensaoDoBlob(blob) {
+                    const mimeToExt = {
+                        'image/jpeg': 'jpg',
+                        'image/jpg': 'jpg',
+                        'image/png': 'png',
+                        'image/gif': 'gif',
+                        'image/webp': 'webp',
+                        'image/bmp': 'bmp'
+                    };
+                    return mimeToExt[blob.type] || 'jpg';
+                }
+
                 // --- 3. Leitura do Excel (usando SheetJS) ---
                 const data = await excelFile.arrayBuffer();
                 const workbook = XLSX.read(data);
@@ -160,7 +261,57 @@
                     throw new Error(`Coluna do Criativo não encontrada: "${creativeColumn}"`);
                 }
 
-                // 4b. Tenta detectar coluna "Dinâmica"
+                // 4b. Resolve coluna do SKU (se fornecida)
+                let colSkuName = null;
+                let idxSku = -1;
+                if (skuColumn) {
+                    const normSkuColumn = _norm(skuColumn);
+                    colSkuName = headerNormMap.get(normSkuColumn);
+
+                    // Tenta correspondência parcial
+                    if (!colSkuName) {
+                        for (const [normHeader, origHeader] of headerNormMap.entries()) {
+                            if (normHeader.includes(normSkuColumn)) {
+                                colSkuName = origHeader;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (colSkuName) {
+                        idxSku = headers.indexOf(colSkuName);
+                        console.log(`✓ Coluna SKU encontrada: "${colSkuName}" (índice ${idxSku})`);
+                    } else {
+                        console.warn(`⚠ Coluna SKU "${skuColumn}" não encontrada. Imagens não serão baixadas.`);
+                    }
+                }
+
+                // 4c. Resolve coluna de Vendas (se fornecida)
+                let colSalesName = null;
+                let idxSales = -1;
+                if (salesColumn) {
+                    const normSalesColumn = _norm(salesColumn);
+                    colSalesName = headerNormMap.get(normSalesColumn);
+
+                    // Tenta correspondência parcial
+                    if (!colSalesName) {
+                        for (const [normHeader, origHeader] of headerNormMap.entries()) {
+                            if (normHeader.includes(normSalesColumn)) {
+                                colSalesName = origHeader;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (colSalesName) {
+                        idxSales = headers.indexOf(colSalesName);
+                        console.log(`✓ Coluna Vendas encontrada: "${colSalesName}" (índice ${idxSales})`);
+                    } else {
+                        console.warn(`⚠ Coluna Vendas "${salesColumn}" não encontrada. Todos os produtos serão processados.`);
+                    }
+                }
+
+                // 4d. Tenta detectar coluna "Dinâmica"
                 const dinamicaAliases = ['dinamica', 'dinâmica', 'categoria', 'campanha', 'grupo', 'etiqueta', 'pasta'];
                 let colDinamicaName = null;
                 for (const alias of dinamicaAliases) {
@@ -170,39 +321,88 @@
                     }
                 }
 
-                // 4c. Pega os índices das colunas
+                // 4e. Pega os índices das colunas
                 const idxCreative = headers.indexOf(colCreativeName);
                 const idxDinamica = colDinamicaName ? headers.indexOf(colDinamicaName) : -1;
 
-                // --- 5. Criação da Estrutura do ZIP (usando JSZip) ---
+                // --- 5. Agrupamento e Filtragem por Pasta (Nível 2) ---
+                setLoading(true, 'Agrupando produtos por pasta...');
+                
+                // Agrupa os produtos por pasta (dinamica + criativo)
+                const produtosPorPasta = new Map();
+                
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue;
+
+                    const creativeVal = safe(row[idxCreative]);
+                    if (!creativeVal) continue;
+
+                    const dinamicaVal = (idxDinamica !== -1 ? safe(row[idxDinamica]) : '').toUpperCase();
+
+                    // Monta a chave da pasta (nivel1 + nivel2)
+                    let pastaKey = '';
+                    if (dinamicaVal) {
+                        pastaKey += dinamicaVal + '/';
+                    }
+                    pastaKey += creativeVal + '/';
+
+                    // Pega o SKU e vendas
+                    const sku = (idxSku !== -1 && row[idxSku]) ? String(row[idxSku]).trim() : null;
+                    const vendas = (idxSales !== -1 && row[idxSales] !== undefined) ? parseVendas(row[idxSales]) : 0;
+
+                    // Se não tem SKU, pula
+                    if (!sku) continue;
+
+                    // Adiciona ao grupo
+                    if (!produtosPorPasta.has(pastaKey)) {
+                        produtosPorPasta.set(pastaKey, []);
+                    }
+
+                    produtosPorPasta.get(pastaKey).push({
+                        sku,
+                        vendas,
+                        pastaKey,
+                        rowIndex: i
+                    });
+                }
+
+                // --- 6. Seleciona Top 5 por Pasta (se coluna de vendas foi informada) ---
+                const produtosSelecionados = [];
+                const MAX_POR_PASTA = 5;
+
+                for (const [pastaKey, produtos] of produtosPorPasta.entries()) {
+                    let produtosOrdenados = produtos;
+
+                    // Se temos coluna de vendas, ordena por vendas (decrescente)
+                    if (idxSales !== -1) {
+                        produtosOrdenados = produtos.sort((a, b) => b.vendas - a.vendas);
+                    }
+
+                    // Pega no máximo 5
+                    const top5 = produtosOrdenados.slice(0, MAX_POR_PASTA);
+                    
+                    console.log(`📁 ${pastaKey}: ${produtos.length} produtos → Top ${top5.length} selecionados`);
+                    if (idxSales !== -1 && top5.length > 0) {
+                        console.log(`   Vendas: [${top5.map(p => p.vendas).join(', ')}]`);
+                    }
+
+                    produtosSelecionados.push(...top5);
+                }
+
+                console.log(`\n✓ Total de produtos selecionados: ${produtosSelecionados.length}`);
+
+                // --- 7. Criação da Estrutura do ZIP ---
                 setLoading(true, 'Criando estrutura de pastas...');
                 
                 const zip = new JSZip();
-                const createdPaths = new Set(); // Para evitar duplicar o .keep
-
-                // Começa da linha 1 (índice 1) para pular o cabeçalho
-                for (let i = 1; i < rows.length; i++) {
-                    const row = rows[i];
-                    if (!row || row.length === 0) continue; // Pula linhas vazias
-
-                    const creativeVal = safe(row[idxCreative]);
-                    if (!creativeVal) {
-                        continue; // Pula se o criativo for vazio
-                    }
-
-                    // Dinâmica em MAIÚSCULO
-                    const dinamicaVal = (idxDinamica !== -1 ? safe(row[idxDinamica]) : '').toUpperCase();
-
-                    let finalPath = '';
-                    if (dinamicaVal) {
-                        finalPath += dinamicaVal + '/';
-                    }
-                    finalPath += creativeVal + '/'; // JSZip usa '/' como separador
-
-                    // Cria o .keep para garantir que a pasta exista no zip
-                    if (!createdPaths.has(finalPath)) {
-                        zip.file(finalPath + '.keep', ''); // Adiciona arquivo .keep vazio
-                        createdPaths.add(finalPath);
+                const createdPaths = new Set();
+                
+                // Cria todas as pastas únicas
+                for (const produto of produtosSelecionados) {
+                    if (!createdPaths.has(produto.pastaKey)) {
+                        zip.file(produto.pastaKey + '.keep', '');
+                        createdPaths.add(produto.pastaKey);
                     }
                 }
 
@@ -210,7 +410,61 @@
                     throw new Error('Nenhuma pasta foi criada. Verifique sua planilha e o nome da coluna.');
                 }
 
-                // --- 6. Geração e Download do .zip ---
+                // --- 8. Download das Imagens ---
+                let totalImagens = 0;
+                let imagensBaixadas = 0;
+                let imagensErro = 0;
+
+                if (produtosSelecionados.length > 0 && idxSku !== -1) {
+                    totalImagens = produtosSelecionados.length;
+                    setLoading(true, `Baixando imagens via webscraping... (0/${totalImagens})`);
+                    
+                    const BATCH_SIZE = 3; // Processa 3 imagens por vez
+                    
+                    for (let i = 0; i < produtosSelecionados.length; i += BATCH_SIZE) {
+                        const batch = produtosSelecionados.slice(i, i + BATCH_SIZE);
+                        
+                        // Processa o lote em paralelo
+                        const promises = batch.map(async (produto) => {
+                            try {
+                                const blob = await baixarImagemPorSKU(produto.sku);
+                                
+                                if (!blob) {
+                                    console.warn(`✗ Erro ao baixar imagem para SKU ${produto.sku}`);
+                                    return { success: false, sku: produto.sku };
+                                }
+
+                                const extensao = getExtensaoDoBlob(blob);
+                                const nomeArquivo = `${safe(produto.sku)}.${extensao}`;
+                                zip.file(produto.pastaKey + nomeArquivo, blob);
+                                console.log(`✓ Imagem baixada: ${produto.pastaKey}${nomeArquivo}`);
+                                return { success: true, sku: produto.sku };
+                                
+                            } catch (error) {
+                                console.error(`✗ Erro ao processar SKU ${produto.sku}:`, error);
+                                return { success: false, sku: produto.sku };
+                            }
+                        });
+
+                        // Aguarda o lote completar
+                        const results = await Promise.all(promises);
+                        
+                        // Conta sucessos e erros
+                        results.forEach(result => {
+                            if (result.success) {
+                                imagensBaixadas++;
+                            } else {
+                                imagensErro++;
+                            }
+                        });
+
+                        // Atualiza o status
+                        const processadas = imagensBaixadas + imagensErro;
+                        setLoading(true, `Baixando imagens via webscraping... (${processadas}/${totalImagens}) - ✓ ${imagensBaixadas} | ✗ ${imagensErro}`);
+                    }
+                }
+
+                // --- 9. Geração e Download do .zip ---
                 setLoading(true, 'Gerando arquivo .zip...');
 
                 // Define o nome do arquivo zip
@@ -233,7 +487,19 @@
                 // Limpa o objeto URL
                 URL.revokeObjectURL(link.href);
                 
-                showStatus(`Sucesso! ${createdPaths.size} pastas criadas em ${zipFileName}`, false);
+                let mensagemSucesso = `Sucesso! ${createdPaths.size} pastas criadas`;
+                if (idxSales !== -1) {
+                    mensagemSucesso += ` (Top ${MAX_POR_PASTA} por pasta)`;
+                }
+                mensagemSucesso += ` em ${zipFileName}`;
+                
+                if (totalImagens > 0) {
+                    mensagemSucesso += `\n${imagensBaixadas} imagens baixadas`;
+                    if (imagensErro > 0) {
+                        mensagemSucesso += `, ${imagensErro} com erro`;
+                    }
+                }
+                showStatus(mensagemSucesso, false);
 
             } catch (error) {
                 console.error('Erro no processamento:', error);

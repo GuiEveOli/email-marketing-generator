@@ -438,6 +438,7 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
         url = (produto_info.get('url') or '').strip()
         is_clube = bool(produto_info.get('is_clube', False))
         is_exclusivo = bool(produto_info.get('is_exclusivo', False))
+        is_oferta_relampago = bool(produto_info.get('is_oferta_relampago', False))
 
         if not url:
             continue
@@ -505,8 +506,12 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
             print(f"[Produto {contador_produto:02d}] {nome_produto}")
             print(f"  - ID: {product_id}")
             print(f"  - Preço DE: R$ {preco_de_formatado} | POR: R$ {preco_por_formatado} | Desc.: {porcentagem_desconto}%")
-            if is_clube or is_exclusivo:
-                selos = ' | '.join(filter(None, ["Clube" if is_clube else None, "Exclusivo Site" if is_exclusivo else None]))
+            if is_clube or is_exclusivo or is_oferta_relampago:
+                selos = ' | '.join(filter(None, [
+                    "Clube" if is_clube else None, 
+                    "Exclusivo Site" if is_exclusivo else None,
+                    "Oferta Relâmpago" if is_oferta_relampago else None
+                ]))
                 if selos:
                     print(f"  - Selos: {selos}")
             print(f"  - Imagem (HTML→fallback APOLLO): {url_imagem}")
@@ -515,14 +520,26 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
         except Exception:
             pass
 
-        # Selos
-        html_selo_oferta = ""
+        # Selos - Permite múltiplos selos simultaneamente
+        selos_spans = []
+        
         if is_clube:
-            html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #cce0ff; color: #034abb; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Clube</span></td></tr>'
-        elif is_exclusivo:
-            html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #bccdee; color: #122447; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Exclusivo Site</span></td></tr>'
-        elif porcentagem_desconto > 0:
-            html_selo_oferta = '<tr><td align="left" valign="top" style="padding-bottom: 8px;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">Oferta</span></td></tr>'
+            selos_spans.append('<span style="background-color: #cce0ff; color: #034abb; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif; margin-right: 4px; display: inline-block;">Clube</span>')
+        
+        if is_exclusivo:
+            selos_spans.append('<span style="background-color: #bccdee; color: #122447; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif; margin-right: 4px; display: inline-block;">Exclusivo Site</span>')
+        
+        if is_oferta_relampago:
+            selos_spans.append('<span style="background-color: #ffd700; color: #000000; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif; margin-right: 4px; display: inline-block;">Oferta Relâmpago</span>')
+        
+        # Se não tiver nenhum selo especial, mostra "Oferta" se houver desconto
+        if not selos_spans and porcentagem_desconto > 0:
+            selos_spans.append('<span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif; margin-right: 4px; display: inline-block;">Oferta</span>')
+        
+        # Monta o HTML dos selos em uma única linha
+        html_selo_oferta = ''
+        if selos_spans:
+            html_selo_oferta = f'<tr><td align="left" valign="top" style="padding-bottom: 8px; line-height: 1.5;">{"".join(selos_spans)}</td></tr>'
 
         html_bloco_desconto = ""
         if porcentagem_desconto > 0 and preco_de_num > 0:
@@ -868,6 +885,289 @@ def api_produtos():
             'error': str(e),
             'produtos': []
         }), 500
+
+@app.route('/api/buscar-imagem-por-sku', methods=['POST'])
+def buscar_imagem_por_sku():
+    """
+    Busca a URL da imagem de um produto pelo SKU no banco de dados do Google Sheets
+    """
+    try:
+        data = request.get_json()
+        sku = data.get('sku', '').strip()
+        
+        if not sku:
+            return jsonify({'success': False, 'error': 'SKU não fornecido'}), 400
+        
+        produtos = carregar_produtos_planilha()
+        sku_lower = sku.lower()
+        
+        # Busca exata pelo SKU
+        for produto in produtos:
+            if produto['sku'].lower() == sku_lower:
+                return jsonify({
+                    'success': True,
+                    'sku': produto['sku'],
+                    'nome': produto['nome'],
+                    'imagem': produto['imagem']
+                })
+        
+        return jsonify({
+            'success': False,
+            'error': f'SKU {sku} não encontrado no banco de dados'
+        }), 404
+        
+    except Exception as e:
+        print(f"Erro ao buscar imagem por SKU: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/proxy-imagem', methods=['POST'])
+def proxy_imagem():
+    """
+    Proxy para baixar imagens de URLs externas, contornando CORS.
+    Baixa a imagem do lado do servidor e retorna como blob.
+    """
+    try:
+        import requests
+        
+        data = request.get_json()
+        url = data.get('url', '').strip()
+        
+        if not url:
+            return jsonify({'success': False, 'error': 'URL não fornecida'}), 400
+        
+        # Baixa a imagem com timeout
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10, stream=True)
+        response.raise_for_status()
+        
+        # Detecta o tipo de conteúdo
+        content_type = response.headers.get('Content-Type', 'image/jpeg')
+        
+        # Retorna a imagem como bytes
+        return send_file(
+            io.BytesIO(response.content),
+            mimetype=content_type,
+            as_attachment=False
+        )
+        
+    except requests.exceptions.Timeout:
+        return jsonify({'success': False, 'error': 'Timeout ao baixar imagem'}), 408
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao baixar imagem via proxy: {e}")
+        return jsonify({'success': False, 'error': f'Erro ao baixar imagem: {str(e)}'}), 500
+    except Exception as e:
+        print(f"Erro no proxy de imagem: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/buscar-e-baixar-imagem-produto', methods=['POST'])
+def buscar_e_baixar_imagem_produto():
+    """
+    Busca a URL do produto pelo SKU e faz webscraping para extrair e baixar a imagem.
+    Similar à lógica do gerador de emails.
+    """
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        import json
+        
+        data = request.get_json()
+        sku = data.get('sku', '').strip()
+        
+        if not sku:
+            return jsonify({'success': False, 'error': 'SKU não fornecido'}), 400
+        
+        # 1. Busca a URL do produto pelo SKU
+        produtos = carregar_produtos_planilha()
+        produto_encontrado = None
+        
+        for produto in produtos:
+            if produto['sku'].lower() == sku.lower():
+                produto_encontrado = produto
+                break
+        
+        if not produto_encontrado:
+            return jsonify({'success': False, 'error': f'SKU {sku} não encontrado'}), 404
+        
+        url_produto = produto_encontrado.get('url', '').strip()
+        
+        if not url_produto:
+            return jsonify({'success': False, 'error': 'URL do produto não disponível'}), 404
+        
+        print(f"→ Buscando imagem do produto: {url_produto}")
+        
+        # 2. Faz o webscraping da página do produto
+        session = requests.Session()
+        session.headers.update({
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive",
+        })
+        
+        try:
+            resp = session.get(url_produto, timeout=(10, 30))
+            resp.raise_for_status()
+        except Exception as e:
+            print(f"✗ Falha ao acessar URL do produto: {e}")
+            return jsonify({'success': False, 'error': f'Erro ao acessar página do produto: {str(e)}'}), 500
+        
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        # 3. Extrai a imagem usando a mesma lógica do gerador
+        def _extract_apollo_state(script_text: str) -> dict | None:
+            if not script_text:
+                return None
+            idx = script_text.find("window.APOLLO_STATE")
+            if idx == -1:
+                return None
+            start = script_text.find("{", idx)
+            if start == -1:
+                return None
+            braces = 0
+            end = -1
+            for i in range(start, len(script_text)):
+                ch = script_text[i]
+                if ch == "{":
+                    braces += 1
+                elif ch == "}":
+                    braces -= 1
+                    if braces == 0:
+                        end = i + 1
+                        break
+            if end == -1:
+                return None
+            json_str = script_text[start:end]
+            json_str = json_str.replace(": undefined", ": null").replace(":undefined", ": null")
+            try:
+                return json.loads(json_str)
+            except Exception:
+                try:
+                    return json.loads(json_str.encode("utf-8", "ignore").decode("utf-8"))
+                except Exception:
+                    return None
+
+        def _extract_image_from_html(soup_obj: BeautifulSoup, nome_produto: str | None = None) -> str:
+            """Extrai a imagem do HTML (mesmo método do gerador)"""
+            placeholder = "https://via.placeholder.com/120"
+            
+            selectors = [
+                'div.product-image-gallery-active-image img[src]',
+                'div.product-image-gallery-desktop-view img[src]',
+                'div.product-image-gallery img[src]',
+                'div.static-image-viewer-container img[src]',
+                'img[class*="product-image"][src]',
+                'img[src][alt]'
+            ]
+            candidates = []
+            for sel in selectors:
+                el = soup_obj.select_one(sel)
+                if el and el.get('src'):
+                    src = (el.get('src') or '').strip()
+                    if src and not src.startswith('data:'):
+                        candidates.append((src, el.get('alt') or ''))
+            
+            if candidates:
+                if nome_produto:
+                    for src, alt in candidates:
+                        if nome_produto.lower() in alt.lower():
+                            return src
+                return candidates[0][0]
+            
+            og = soup_obj.find('meta', property='og:image') or soup_obj.find('meta', attrs={'name': 'og:image'})
+            if og and og.get('content'):
+                content = og.get('content').strip()
+                if content:
+                    return content
+            
+            link_img = soup_obj.find('link', rel='image_src')
+            if link_img and link_img.get('href'):
+                href = link_img.get('href').strip()
+                if href:
+                    return href
+            
+            any_img = soup_obj.find('img', src=True)
+            if any_img and any_img.get('src'):
+                return any_img.get('src').strip()
+            
+            return placeholder
+
+        def _resolve_image_url(apollo: dict, image_ref) -> str:
+            """Resolve URL da imagem via APOLLO_STATE"""
+            placeholder = "https://via.placeholder.com/120"
+            ref_key = None
+            if isinstance(image_ref, str):
+                ref_key = image_ref
+            elif isinstance(image_ref, dict):
+                ref_key = image_ref.get("__ref") or image_ref.get("id")
+            if not ref_key:
+                return placeholder
+            file_obj = apollo.get(ref_key)
+            if isinstance(file_obj, dict):
+                return file_obj.get("url") or file_obj.get("src") or placeholder
+            return placeholder
+        
+        # Tenta extrair do HTML primeiro
+        nome_produto = produto_encontrado.get('nome', '')
+        url_imagem = _extract_image_from_html(soup, nome_produto)
+        
+        # Se não encontrou no HTML ou é SVG/GIF, tenta APOLLO_STATE
+        if not url_imagem or url_imagem.endswith(('.svg', '.gif')) or 'placeholder' in url_imagem:
+            script_tag = soup.find('script', id='main-states')
+            if script_tag:
+                apollo = _extract_apollo_state(script_tag.text)
+                if apollo:
+                    # Procura o produto no APOLLO_STATE
+                    for key, value in apollo.items():
+                        if isinstance(key, str) and key.startswith("PublicViewerProduct:") and isinstance(value, dict):
+                            url_imagem = _resolve_image_url(apollo, value.get("image"))
+                            if url_imagem and 'placeholder' not in url_imagem:
+                                break
+        
+        if not url_imagem or 'placeholder' in url_imagem:
+            print(f"✗ Não foi possível extrair URL da imagem para SKU {sku}")
+            return jsonify({'success': False, 'error': 'Imagem não encontrada na página do produto'}), 404
+        
+        print(f"✓ URL da imagem encontrada: {url_imagem}")
+        
+        # 4. Baixa a imagem
+        headers_img = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+            'Referer': url_produto
+        }
+        
+        try:
+            img_response = session.get(url_imagem, headers=headers_img, timeout=(10, 30), stream=True)
+            img_response.raise_for_status()
+            
+            content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+            
+            if not content_type.startswith('image/'):
+                return jsonify({'success': False, 'error': 'URL não retorna uma imagem válida'}), 400
+            
+            print(f"✓ Imagem baixada: {len(img_response.content)} bytes")
+            
+            # Retorna a imagem
+            return send_file(
+                io.BytesIO(img_response.content),
+                mimetype=content_type,
+                as_attachment=False
+            )
+            
+        except Exception as e:
+            print(f"✗ Erro ao baixar imagem: {e}")
+            return jsonify({'success': False, 'error': f'Erro ao baixar imagem: {str(e)}'}), 500
+        
+    except Exception as e:
+        print(f"✗ Erro no webscraping: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
 # --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
