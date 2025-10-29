@@ -486,6 +486,57 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
         promocional = pricing.get("promotionalPrice") if pricing else None
         preco_por_num = _to_float(promocional if promocional not in (None, "") else 0)
 
+        # DEBUG: Tenta capturar preço promocional de outras fontes se não encontrou no APOLLO_STATE
+        if preco_por_num == 0 and preco_de_num > 0:
+            print(f"  [DEBUG] Preço promocional não encontrado no APOLLO_STATE, tentando outras fontes...")
+            
+            # Tenta pegar do HTML diretamente - várias possíveis classes/estruturas
+            selectors_preco = [
+                'span.promotion',
+                'span[class*="promotion"]',
+                'span[class*="promotional"]',
+                'div[class*="price"] span[class*="promotional"]',
+                'div[class*="price"] span[class*="promotion"]',
+                'span[class*="sale"]',
+                'span[class*="discount"]',
+                '.product-price-promotional',
+                '.promotional-price',
+                '.sale-price',
+                'div.product-renderer-pricing-wrapper span[class*="promotion"]',
+                'div.product-renderer-active-price-wrapper span',
+            ]
+            
+            for selector in selectors_preco:
+                elementos = soup.select(selector)
+                for el in elementos:
+                    texto = el.get_text(strip=True)
+                    print(f"    Tentando selector '{selector}': {texto}")
+                    # Tenta extrair número do texto
+                    match = re.search(r'R?\$?\s*(\d+[.,]\d{2})', texto)
+                    if match:
+                        valor_encontrado = _to_float(match.group(1))
+                        if valor_encontrado > 0 and valor_encontrado < preco_de_num:
+                            print(f"    ✓ Preço promocional encontrado via HTML: R$ {_format_brl(valor_encontrado)}")
+                            preco_por_num = valor_encontrado
+                            break
+                if preco_por_num > 0:
+                    break
+            
+            # Se ainda não encontrou, tenta procurar no APOLLO_STATE completo por qualquer campo com "promotion" ou "sale"
+            if preco_por_num == 0:
+                print(f"    Vasculhando APOLLO_STATE completo...")
+                for key, value in apollo.items():
+                    if isinstance(value, dict):
+                        for field, field_value in value.items():
+                            if 'promotion' in field.lower() or 'sale' in field.lower() or 'discount' in field.lower():
+                                tentativa = _to_float(field_value)
+                                if tentativa > 0 and tentativa < preco_de_num:
+                                    print(f"    ✓ Encontrado em APOLLO_STATE[{key}][{field}]: R$ {_format_brl(tentativa)}")
+                                    preco_por_num = tentativa
+                                    break
+                    if preco_por_num > 0:
+                        break
+
         # Se não encontrou preço promocional, mantém o preço POR zerado para ajuste manual
         # mas garante que o preço DE tenha valor
         if preco_por_num == 0 and preco_de_num == 0:
@@ -494,6 +545,7 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
             preco_por_num = 0
         elif preco_por_num == 0 and preco_de_num > 0:
             # Preço DE existe, mas POR está zerado - mantém assim para ajuste manual
+            print(f"  ⚠ Preço promocional não encontrado em nenhuma fonte. Mantendo zerado para ajuste manual.")
             pass
         elif preco_de_num == 0 and preco_por_num > 0:
             # Só tem preço promocional (caso raro), usa como preço DE também
