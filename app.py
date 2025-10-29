@@ -484,7 +484,20 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
         pricing = _pick_pricing(apollo, product_id)
         preco_de_num = _to_float(pricing.get("price") if pricing else 0)
         promocional = pricing.get("promotionalPrice") if pricing else None
-        preco_por_num = _to_float(promocional if promocional not in (None, "") else preco_de_num)
+        preco_por_num = _to_float(promocional if promocional not in (None, "") else 0)
+
+        # Se não encontrou preço promocional, mantém o preço POR zerado para ajuste manual
+        # mas garante que o preço DE tenha valor
+        if preco_por_num == 0 and preco_de_num == 0:
+            # Se ambos estão zerados, não há dados de preço
+            preco_de_num = 0
+            preco_por_num = 0
+        elif preco_por_num == 0 and preco_de_num > 0:
+            # Preço DE existe, mas POR está zerado - mantém assim para ajuste manual
+            pass
+        elif preco_de_num == 0 and preco_por_num > 0:
+            # Só tem preço promocional (caso raro), usa como preço DE também
+            preco_de_num = preco_por_num
 
         # Cálculo de desconto
         porcentagem_desconto = 0
@@ -542,7 +555,11 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
             html_selo_oferta = f'<tr><td align="left" valign="top" style="padding-bottom: 8px; line-height: 1.5;">{"".join(selos_spans)}</td></tr>'
 
         html_bloco_desconto = ""
+        # Mostra o bloco de desconto se houver desconto real
         if porcentagem_desconto > 0 and preco_de_num > 0:
+            html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
+        # Se não tem desconto mas tem preço DE (para mostrar que o preço POR está zerado e precisa ajuste)
+        elif preco_de_num > 0 and preco_por_num == 0:
             html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
 
         template_produto = f"""
