@@ -334,9 +334,6 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
         return f"{num:.2f}".replace(".", ",")
 
     def _resolve_image_url(apollo: dict, image_ref) -> str:
-        """
-        Fallback: resolve a URL via APOLLO_STATE (File:... -> url)
-        """
         placeholder = "https://via.placeholder.com/120"
         ref_key = None
         if isinstance(image_ref, str):
@@ -351,9 +348,6 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
         return placeholder
 
     def _extract_image_from_html(soup: BeautifulSoup, nome_produto: str | None = None) -> str:
-        """
-        Tenta obter a imagem diretamente do HTML (galeria/og:image), sem depender do APOLLO_STATE.
-        """
         placeholder = "https://via.placeholder.com/120"
 
         # Preferir a imagem ativa da galeria do produto
@@ -711,6 +705,396 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
 
     return email_final_html
 
+# --- FUNÇÃO AUXILIAR PARA PROCESSAR UM ÚNICO PRODUTO ---
+def processar_produto_individual(url, utm_source, utm_campaign, contador_produto, is_clube=False, is_exclusivo=False, is_oferta_relampago=False, cor_botao="#ff0000"):
+    """
+    Faz o web scraping de um produto individual e retorna seu HTML.
+    Extraído da função buscar_produtos para permitir uso modular.
+    """
+    import json
+    import requests
+    from bs4 import BeautifulSoup
+
+    def _extract_apollo_state(script_text: str) -> dict | None:
+        if not script_text:
+            return None
+        idx = script_text.find("window.APOLLO_STATE")
+        if idx == -1:
+            return None
+        start = script_text.find("{", idx)
+        if start == -1:
+            return None
+        braces = 0
+        end = -1
+        for i in range(start, len(script_text)):
+            ch = script_text[i]
+            if ch == "{":
+                braces += 1
+            elif ch == "}":
+                braces -= 1
+                if braces == 0:
+                    end = i + 1
+                    break
+        if end == -1:
+            return None
+        json_str = script_text[start:end]
+        json_str = json_str.replace(": undefined", ": null").replace(":undefined", ": null")
+        try:
+            return json.loads(json_str)
+        except Exception:
+            try:
+                return json.loads(json_str.encode("utf-8", "ignore").decode("utf-8"))
+            except Exception:
+                return None
+
+    def _to_float(val) -> float:
+        try:
+            if isinstance(val, (int, float)):
+                return float(val)
+            if isinstance(val, str):
+                v = val.strip()
+                if v.count(",") == 1 and v.count(".") == 0:
+                    v = v.replace(".", "").replace(",", ".")
+                else:
+                    v = re.sub(r"[^0-9\.,-]", "", v)
+                    if v.count(",") == 1 and v.count(".") == 0:
+                        v = v.replace(",", ".")
+                return float(v)
+        except Exception:
+            return 0.0
+        return 0.0
+
+    def _format_brl(num: float) -> str:
+        return f"{num:.2f}".replace(".", ",")
+
+    def _resolve_image_url(apollo: dict, image_ref) -> str:
+        placeholder = "https://via.placeholder.com/120"
+        ref_key = None
+        if isinstance(image_ref, str):
+            ref_key = image_ref
+        elif isinstance(image_ref, dict):
+            ref_key = image_ref.get("__ref") or image_ref.get("id")
+        if not ref_key:
+            return placeholder
+        file_obj = apollo.get(ref_key)
+        if isinstance(file_obj, dict):
+            return file_obj.get("url") or file_obj.get("src") or placeholder
+        return placeholder
+
+    def _extract_image_from_html(soup: BeautifulSoup, nome_produto: str | None = None) -> str:
+        placeholder = "https://via.placeholder.com/120"
+        selectors = [
+            'div.product-image-gallery-active-image img[src]',
+            'div.product-image-gallery-desktop-view img[src]',
+            'div.product-image-gallery img[src]',
+            'div.static-image-viewer-container img[src]',
+            'img[class*="product-image"][src]',
+            'img[src][alt]'
+        ]
+        candidates = []
+        for sel in selectors:
+            el = soup.select_one(sel)
+            if el and el.get('src'):
+                src = (el.get('src') or '').strip()
+                if src and not src.startswith('data:'):
+                    candidates.append((src, el.get('alt') or ''))
+        
+        if candidates:
+            if nome_produto:
+                for src, alt in candidates:
+                    if nome_produto.lower() in alt.lower():
+                        return src
+            return candidates[0][0]
+        
+        og = soup.find('meta', property='og:image') or soup.find('meta', attrs={'name': 'og:image'})
+        if og and og.get('content'):
+            content = og.get('content').strip()
+            if content:
+                return content
+        
+        link_img = soup.find('link', rel='image_src')
+        if link_img and link_img.get('href'):
+            href = link_img.get('href').strip()
+            if href:
+                return href
+        
+        any_img = soup.find('img', src=True)
+        if any_img and any_img.get('src'):
+            return any_img.get('src').strip()
+        
+        return placeholder
+
+    def _pick_product(apollo: dict) -> tuple[dict | None, str | None]:
+        for key, value in apollo.items():
+            if isinstance(key, str) and key.startswith("PublicViewerProduct:") and isinstance(value, dict):
+                product_id = key.split(":", 1)[1]
+                return value, product_id
+        return None, None
+
+    def _pick_pricing(apollo: dict, product_id: str | None) -> dict | None:
+        candidates = []
+        for key, value in apollo.items():
+            if isinstance(key, str) and key.startswith("PublicViewerProductPricing:") and isinstance(value, dict):
+                if product_id and product_id in key:
+                    candidates.append(value)
+        if not candidates:
+            for key, value in apollo.items():
+                if isinstance(key, str) and key.startswith("PublicViewerProductPricing:") and isinstance(value, dict):
+                    if "price" in value or "promotionalPrice" in value:
+                        candidates.append(value)
+        candidates.sort(key=lambda v: ("promotionalPrice" in v, "price" in v), reverse=True)
+        return candidates[0] if candidates else None
+
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Connection": "keep-alive",
+    })
+
+    try:
+        resp = session.get(url, timeout=(5, 12))
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"✗ Falha ao baixar HTML do produto {contador_produto}: {e}")
+        return None
+
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    script_tag = soup.find('script', id='main-states')
+
+    if not script_tag:
+        print(f"✗ <script id='main-states'> não encontrado na página {url}")
+        return None
+
+    apollo = _extract_apollo_state(script_tag.text)
+    if not apollo:
+        print(f"✗ Não foi possível extrair APOLLO_STATE para {url}")
+        return None
+
+    product_obj, product_id = _pick_product(apollo)
+    if not product_obj:
+        print(f"✗ PublicViewerProduct não encontrado para {url}")
+        return None
+
+    nome_produto = product_obj.get("name") or "Produto Genérico"
+    url_imagem = _extract_image_from_html(soup, nome_produto)
+    if not url_imagem or url_imagem.endswith(('.svg', '.gif')):
+        url_imagem = _resolve_image_url(apollo, product_obj.get("image"))
+
+    pricing = _pick_pricing(apollo, product_id)
+    preco_de_num = _to_float(pricing.get("price") if pricing else 0)
+    promocional = pricing.get("promotionalPrice") if pricing else None
+    preco_por_num = _to_float(promocional if promocional not in (None, "") else 0)
+
+    if preco_por_num == 0 and preco_de_num > 0:
+        # Tenta buscar preço promocional no HTML
+        selectors_preco = [
+            'span.promotion', 'span[class*="promotion"]', 'span[class*="promotional"]',
+            'div[class*="price"] span[class*="promotional"]', 'span[class*="sale"]'
+        ]
+        for selector in selectors_preco:
+            elementos = soup.select(selector)
+            for el in elementos:
+                texto = el.get_text(strip=True)
+                match = re.search(r'R?\$?\s*(\d+[.,]\d{2})', texto)
+                if match:
+                    valor_encontrado = _to_float(match.group(1))
+                    if valor_encontrado > 0 and valor_encontrado < preco_de_num:
+                        preco_por_num = valor_encontrado
+                        break
+            if preco_por_num > 0:
+                break
+
+    if preco_de_num == 0 and preco_por_num > 0:
+        preco_de_num = preco_por_num
+
+    porcentagem_desconto = 0
+    if preco_de_num > preco_por_num and preco_por_num > 0:
+        try:
+            porcentagem_desconto = int(((preco_de_num - preco_por_num) / max(preco_de_num, 0.0001)) * 100)
+        except Exception:
+            porcentagem_desconto = 0
+
+    preco_por_formatado = _format_brl(preco_por_num)
+    preco_de_formatado = _format_brl(preco_de_num)
+
+    utm_medium_automatico = f"produto {contador_produto:02d}"
+    url_com_utm = adicionar_utm_na_url(url, utm_source, utm_medium_automatico, utm_campaign)
+
+    print(f"[Produto {contador_produto:02d}] {nome_produto} | DE: R$ {preco_de_formatado} | POR: R$ {preco_por_formatado}")
+
+    # Gerar selos
+    selos_spans = []
+    if is_clube:
+        selos_spans.append('<span style="background-color: #cce0ff; color: #034abb; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif; margin-right: 4px; display: inline-block;">Clube</span>')
+    if is_exclusivo:
+        selos_spans.append('<span style="background-color: #bccdee; color: #122447; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif; margin-right: 4px; display: inline-block;">Exclusivo Site</span>')
+    if is_oferta_relampago:
+        selos_spans.append('<span style="background-color: #ffd700; color: #000000; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif; margin-right: 4px; display: inline-block;">Oferta Relâmpago</span>')
+    if not selos_spans and porcentagem_desconto > 0:
+        selos_spans.append('<span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif; margin-right: 4px; display: inline-block;">Oferta</span>')
+
+    html_selo_oferta = ''
+    if selos_spans:
+        html_selo_oferta = f'<tr><td align="left" valign="top" style="padding-bottom: 8px; line-height: 1.5;">{"".join(selos_spans)}</td></tr>'
+
+    html_bloco_desconto = ""
+    if porcentagem_desconto > 0 and preco_de_num > 0:
+        html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
+    elif preco_de_num > 0 and preco_por_num == 0:
+        html_bloco_desconto = f'<tr><td style="padding-bottom: 4px; text-align:left;"><table class="price-table" border="0" cellpadding="0" cellspacing="0" style="width:auto; margin:0;"><tbody><tr><td align="left" valign="middle" style="white-space:nowrap;"><span style="text-decoration: line-through; color: #6c757d; font-size: 12px; font-family: \'Roboto\', Arial, sans-serif;">R$ {preco_de_formatado}</span></td><td align="left" valign="middle" style="padding-left: 10px; white-space:nowrap;"><span style="background-color: #ffebee; color: #dc3545; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; font-family: \'Roboto\', Arial, sans-serif;">-{porcentagem_desconto}%</span></td></tr></tbody></table></td></tr>'
+
+    template_produto = f"""
+<!-- Início | Produto -->
+<div class="column" style="display: inline-block; width: 50%; max-width: 300px; vertical-align: top; box-sizing: border-box; padding: 4px;">
+    <table class="product-card-table" width="100%" border="0" cellpadding="0" cellspacing="0" 
+           style="background-color: #ffffff; border-radius: 16px; padding: 12px; text-align: left; height: 172px; box-sizing: border-box;">
+        <tbody>
+            <tr>
+                <!-- Coluna da Imagem -->
+                <td class="product-image-cell" valign="top" align="center" style="width: 120px;">
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                        <tbody>
+                            {html_selo_oferta}
+                            <tr>
+                                <td align="center" valign="top">
+                                    <a target="_blank" href="{url_com_utm}">
+                                        <img alt="{nome_produto}" 
+                                             style="display: block; margin: 0px auto; max-width: 120px;" 
+                                             src="{url_imagem}" />
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+                
+                <!-- Coluna das Informações -->
+                <td class="product-info-cell" valign="top" align="left" 
+                    style="text-align:left; padding:12px 0 0 12px;">
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                        <tbody>
+                            <!-- Nome do Produto -->
+                            <tr>
+                                <td style="font-size: 12px; font-weight: 700; color: #212529; 
+                                           font-family: 'Roboto', Arial, sans-serif; padding-bottom: 12px; 
+                                           height: 48px; vertical-align: top;">
+                                    {nome_produto}
+                                </td>
+                            </tr>
+                            
+                            <!-- Bloco de Desconto (se houver) -->
+                            {html_bloco_desconto}
+                            
+                            <!-- Preço -->
+                            <tr>
+                                <td style="font-size: 16px; font-weight: 700; color: #212529; 
+                                           font-family: 'Roboto', Arial, sans-serif; padding-bottom: 12px;">
+                                    R$ {_format_brl(preco_por_num)}
+                                </td>
+                            </tr>
+                            
+                            <!-- Botão Ver Produto -->
+                            <tr>
+                                <td>
+                                    <a target="_blank" 
+                                       style="background-color:{cor_botao};
+                                              border-radius:50px;
+                                              color:#ffffff;
+                                              display:block;
+                                              font-family:'Roboto', Arial, sans-serif;
+                                              font-size:12px;
+                                              font-weight:bold;
+                                              height:28px;
+                                              line-height:28px;
+                                              text-align:center;
+                                              text-decoration:none;
+                                              width:100%;
+                                              -webkit-text-size-adjust:none;" 
+                                       href="{url_com_utm}">
+                                        Ver Produto
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<!-- Fim | Produto -->
+"""
+    
+    return template_produto
+
+
+# --- FUNÇÃO PARA GERAR HTML DE BLOCO DE PRODUTOS ---
+def gerar_html_bloco_produtos(produtos_info, utm_source, utm_campaign, cor_botao, contador_inicial=0):
+    """
+    Gera o HTML para um bloco de produtos.
+    Usa a função processar_produto_individual para cada produto.
+    """
+    html_produtos = []
+    contador = contador_inicial
+    
+    for produto_info in produtos_info:
+        url = (produto_info.get('url') or '').strip()
+        if not url:
+            continue
+            
+        contador += 1
+        is_clube = bool(produto_info.get('is_clube', False))
+        is_exclusivo = bool(produto_info.get('is_exclusivo', False))
+        is_oferta_relampago = bool(produto_info.get('is_oferta_relampago', False))
+        
+        html_produto = processar_produto_individual(
+            url, utm_source, utm_campaign, contador,
+            is_clube, is_exclusivo, is_oferta_relampago, cor_botao
+        )
+        
+        if html_produto:
+            html_produtos.append(html_produto)
+    
+    return '\n'.join(html_produtos), contador
+
+
+# --- FUNÇÃO PARA GERAR HTML DE BANNER ---
+def gerar_html_banner(tipo_banner):
+    """
+    Gera o HTML para um bloco de banner placeholder.
+    """
+    if tipo_banner == 'banner_full':
+        return """
+                <!-- Início | Banner 1x1 -->
+                <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
+                    <tr>
+                        <td align="center">
+                            <img src="https://placehold.co/600x150?text=Banner" alt="Banner" style="width: 100%; max-width: 600px; display: block;">
+                        </td>
+                    </tr>
+                </table>
+                <!-- Fim | Banner 1x1 -->
+                """
+    elif tipo_banner == 'banner_half':
+        return """
+                <!-- Início | Banner 1x2 -->
+                <table width="600" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 20px auto;">
+                    <tr>
+                        <td width="300" align="center" style="padding-right: 2px;">
+                            <img src="https://placehold.co/300x400?text=Banner+1" alt="Banner Parte 1" style="width: 100%; max-width: 300px; display: block;">
+                        </td>
+                        <td width="300" align="center" style="padding-left: 2px;">
+                            <img src="https://placehold.co/300x400?text=Banner+1" alt="Banner Parte 2" style="width: 100%; max-width: 300px; display: block;">
+                        </td>
+                    </tr>
+                </table>
+                <!-- Fim | Banner 1x2 -->
+                """
+    return ""
+
+
 # --- ROTAS DO SITE ---
 
 @app.route('/')
@@ -833,30 +1217,25 @@ def gerar_email():
                 'error': 'Nenhum dado recebido'
             }), 400
         
-        produtos_selecionados = data.get('produtos', [])
+        # Nova estrutura: recebe array de blocos
+        layout = data.get('layout', [])
         
-        if not produtos_selecionados:
-            print("ERRO: Nenhum produto selecionado")
+        if not layout:
+            print("ERRO: Nenhum bloco no layout")
             return jsonify({
                 'success': False,
-                'error': 'Nenhum produto selecionado'
+                'error': 'Nenhum bloco adicionado ao layout'
             }), 400
         
         utm_source = data.get('utm_source', 'email-mkt')
         utm_campaign = data.get('utm_campaign', 'sem-campanha')
         cta_url = data.get('cta_url', 'https://www.superkoch.com.br/promocoes')
         preheader_text = data.get('preheader_text', 'Peça até as 15h e receba HOJE. Sujeito a disponibilidade.')
-        apenas_produtos = data.get('apenas_produtos', '') == 'true'
-        bloco_03_selecionado = data.get('componente_bloco_03')
-        bloco_05_selecionado = data.get('componente_bloco_05')
-        bloco_cupom_selecionado = data.get('componente_bloco_cupom', '')
-        cor_botao = data.get('cor_botao', '#ff0000')
-        
-        # Se "apenas produtos" estiver ativo, limpa os outros componentes
-        if apenas_produtos:
-            bloco_03_selecionado = None
-            bloco_05_selecionado = None
-            bloco_cupom_selecionado = ''
+        cor_botao = data.get('cor_botao', '#122447')
+        apenas_produtos = data.get('apenas_produtos', False)
+        tem_cupom = data.get('tem_cupom', False)
+        validade_data_raw = (data.get('validade_data') or '').strip()  # novo
+
         
         # Valida formato hexadecimal
         if not re.match(r'^#[0-9A-Fa-f]{6}$', cor_botao):
@@ -865,44 +1244,87 @@ def gerar_email():
                 'error': 'Cor do botão inválida. Use formato hexadecimal (#RRGGBB)'
             }), 400
 
-        print(f"✓ Recebidos {len(produtos_selecionados)} produtos para processar.")
+        validade_data_br = ''
+        if validade_data_raw:
+            try:
+                from datetime import datetime
+                if re.match(r'^\d{4}-\d{2}-\d{2}$', validade_data_raw):  # HTML input date
+                    dt = datetime.strptime(validade_data_raw, '%Y-%m-%d')
+                else:  # tenta DD/MM/AAAA
+                    dt = datetime.strptime(validade_data_raw, '%d/%m/%Y')
+                validade_data_br = dt.strftime('%d/%m/%Y')
+            except Exception:
+                validade_data_br = validade_data_raw  # mantém como veio se não conseguir formatar
+        else:
+            validade_data_br = datetime.now().strftime('%d/%m/%Y')  # data atual como padrão
+
+        print(f"✓ Recebidos {len(layout)} blocos para processar.")
         print(f"✓ UTM Source: {utm_source}")
         print(f"✓ UTM Campaign: {utm_campaign}")
         print(f"✓ CTA URL: {cta_url}")
-        print(f"✓ Preheader: {preheader_text}")
-        print(f"✓ Apenas Produtos: {'Sim' if apenas_produtos else 'Não'}")
-        print(f"✓ Bloco Cupom: {'Sim' if bloco_cupom_selecionado else 'Não selecionado'}")
         print(f"✓ Cor do botão: {cor_botao}")
+        print(f"✓ Apenas produtos: {apenas_produtos}")
+        print(f"✓ Tem cupom: {tem_cupom}")
         
         # Adiciona UTM ao CTA
-        cta_url_com_utm = adicionar_utm_na_url(cta_url, utm_source, "todas as ofertas", utm_campaign)
+        cta_url_com_utm = adicionar_utm_na_url(cta_url, utm_source, "ver todas as ofertas", utm_campaign)
         
+        # Define o componente do cupom se habilitado
+        componente_cupom = 'bloco_cupom_explicativo' if tem_cupom else ''
+        
+        # Renderiza o template base (header, footer, etc)
         print("→ Renderizando template base...")
-        template_para_produtos = render_template(
-            'email_layout.html', 
-            componente_bloco_03=bloco_03_selecionado, 
-            componente_bloco_05=bloco_05_selecionado,
-            componente_bloco_cupom=bloco_cupom_selecionado,
+        template_base = render_template(
+            'email_layout.html',
+            componente_bloco_03=None,  # Não usa mais os componentes fixos
+            componente_bloco_05=None,
+            componente_bloco_cupom=componente_cupom,
             cta_url=cta_url_com_utm,
             preheader_text=preheader_text,
-            apenas_produtos=apenas_produtos
+            apenas_produtos=apenas_produtos,
+            validade_data=validade_data_br   # novo
         )
         
-        print("→ Iniciando busca de produtos...")
-        html_gerado = buscar_produtos(
-            produtos_selecionados,
-            template_para_produtos, 
-            utm_source, 
-            utm_campaign,
-            cor_botao
-        )
+        # Processa cada bloco do layout
+        print("→ Processando blocos do layout...")
+        blocos_html = []
+        contador_produtos = 0
+        
+        for idx, bloco in enumerate(layout):
+            tipo_bloco = bloco.get('type')
+            print(f"  Bloco {idx + 1}: {tipo_bloco}")
+            
+            if tipo_bloco == 'produtos':
+                produtos = bloco.get('produtos', [])
+                if produtos:
+                    html_produtos, contador_produtos = gerar_html_bloco_produtos(
+                        produtos, utm_source, utm_campaign, cor_botao, contador_produtos
+                    )
+                    blocos_html.append(html_produtos)
+            
+            elif tipo_bloco in ['banner_full', 'banner_half']:
+                html_banner = gerar_html_banner(tipo_bloco)
+                blocos_html.append(html_banner)
+        
+        # Concatena todos os blocos
+        html_final_blocos = '\n'.join(blocos_html)
+        
+        # Injeta os blocos no template
+        if '{{PRODUTOS_PLACEHOLDER}}' in template_base:
+            html_final = template_base.replace('{{PRODUTOS_PLACEHOLDER}}', html_final_blocos)
+        elif '<!-- PRODUTOS -->' in template_base:
+            html_final = template_base.replace('<!-- PRODUTOS -->', html_final_blocos)
+        elif '<!-- PRODUTOS_AQUI -->' in template_base:
+            html_final = template_base.replace('<!-- PRODUTOS_AQUI -->', html_final_blocos)
+        else:
+            html_final = template_base + html_final_blocos
         
         print("✓ Email gerado com sucesso!")
         
         return jsonify({
             'success': True,
             'redirect': '/resultado',
-            'html': html_gerado
+            'html': html_final
         })
         
     except Exception as e:
@@ -1126,7 +1548,7 @@ def buscar_e_baixar_imagem_produto():
             placeholder = "https://via.placeholder.com/120"
             
             selectors = [
-                'div.product-image-gallery-active-image img[src]',
+'div.product-image-gallery-active-image img[src]',
                 'div.product-image-gallery-desktop-view img[src]',
                 'div.product-image-gallery img[src]',
                 'div.static-image-viewer-container img[src]',

@@ -567,8 +567,8 @@ body.gerador-page h2 {
 
 /* Lista de Produtos Selecionados */
 .produtos-selecionados {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    /* display: grid;
+    grid-template-columns: repeat(2, 1fr); */
     gap: 20px;
     margin-top: 20px;
 }
@@ -900,9 +900,8 @@ body.skuconsult-page #skuInput:focus {
 
 #listaProdutos {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
-    margin-top: 2rem;
 }
 
 body.skuconsult-page .produto-card {
