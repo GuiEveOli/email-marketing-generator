@@ -201,7 +201,7 @@
 
     .builder-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 2fr;
         gap: 30px;
         flex-grow: 1;
         min-height: 600px;
@@ -212,8 +212,37 @@
         border-radius: 16px;
         padding: 30px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        overflow-y: auto;
         border: 1px solid rgba(102, 126, 234, 0.1);
+        position: sticky;
+        top: 60px;
+        align-self: flex-start;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+
+    .produtos-panel:hover {
+        box-shadow: 0 8px 30px rgba(102, 126, 234, 0.15);
+    }
+
+    /* Estilização da scrollbar do painel sticky */
+    .produtos-panel::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .produtos-panel::-webkit-scrollbar-track {
+        background: #f1f3f5;
+        border-radius: 10px;
+    }
+
+    .produtos-panel::-webkit-scrollbar-thumb {
+        background: #cbd5e0;
+        border-radius: 10px;
+        transition: background 0.2s ease;
+    }
+
+    .produtos-panel::-webkit-scrollbar-thumb:hover {
+        background: #667eea;
     }
 
     .produtos-panel h3 {
@@ -470,6 +499,7 @@
         display: flex;
         flex-direction: column;
         border: 1px solid rgba(102, 126, 234, 0.1);
+        min-height: 600px;
     }
 
     .builder-header {
@@ -537,6 +567,7 @@
         padding: 25px;
         overflow-y: auto;
         flex-grow: 1;
+        min-height: 600px;
     }
 
     .builder-empty {
@@ -573,6 +604,11 @@
         padding: 8px;
         margin-bottom: 4px;
         transition: all 0.3s ease;
+        cursor: grab;
+    }
+
+    .layout-block:active {
+        cursor: grabbing;
     }
 
     .layout-block:hover {
@@ -581,10 +617,23 @@
         transform: translateY(-2px);
     }
 
+    .layout-block.dragging {
+        opacity: 0.4;
+        transform: scale(0.95);
+    }
+
     .layout-block.drag-over {
         border-color: #10b981;
         background: #f0fdf4;
         box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+    }
+
+    .layout-block.drag-over-top {
+        border-top: 4px solid #10b981;
+    }
+
+    .layout-block.drag-over-bottom {
+        border-bottom: 4px solid #10b981;
     }
 
     .block-header {
@@ -731,6 +780,7 @@
         border: 2px solid #10b981;
         padding: 15px;
         position: relative;
+        display: block;
     }
 
     .produto-slot-content {
@@ -779,6 +829,65 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        margin-bottom: 6px;
+    }
+
+    .produto-slot-selos {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+    }
+
+    .selo-toggle {
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+        user-select: none;
+    }
+
+    .selo-toggle.clube {
+        background: #f3f4f6;
+        color: #6b7280;
+        border-color: #e5e7eb;
+    }
+
+    .selo-toggle.clube.ativo {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        color: white;
+        border-color: #d97706;
+    }
+
+    .selo-toggle.exclusivo {
+        background: #f3f4f6;
+        color: #6b7280;
+        border-color: #e5e7eb;
+    }
+
+    .selo-toggle.exclusivo.ativo {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        border-color: #6d28d9;
+    }
+
+    .selo-toggle.relampago {
+        background: #f3f4f6;
+        color: #6b7280;
+        border-color: #e5e7eb;
+    }
+
+    .selo-toggle.relampago.ativo {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        border-color: #b91c1c;
+    }
+
+    .selo-toggle:hover {
+        transform: scale(1.05);
     }
 
     .btn-limpar-slot {
@@ -796,6 +905,7 @@
         line-height: 1;
         transition: all 0.2s ease;
         font-weight: 700;
+        z-index: 10;
     }
 
     .btn-limpar-slot:hover {
@@ -928,9 +1038,10 @@
     }
 
     .toast-container {
-        position: fixed;
-        top: 20px;
-        right: 20px;
+        position: fixed !important;
+        bottom: 20px !important;
+        right: 20px !important;
+        top: auto !important;
         z-index: 10000;
     }
 
@@ -955,6 +1066,17 @@
         to {
             transform: translateX(0);
             opacity: 1;
+        }
+    }
+
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
         }
     }
 
@@ -1041,36 +1163,164 @@
     }
 
     .btn-reorder {
-        background: #677ae5;
-        color: #ffffff;
-        border: none;
-        border-radius: 200px;
-        padding: 4px 8px;
-        cursor: pointer;
+        display: none; /* Removido - agora usa drag and drop */
+    }
+
+    /* Blocos arrastáveis */
+    .blocos-drag-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .bloco-item {
+        padding: 14px 18px;
+        border: 2px dashed #cbd5e0;
+        background: #fff;
+        border-radius: 10px;
         font-weight: 600;
-        font-size: 12px;
+        font-size: 13px;
+        color: #4a5568;
+        cursor: pointer;
         transition: all 0.2s ease;
-        display: flex;
+        user-select: none;
+    }
+    .bloco-item:hover {
+        border-color: #667eea;
+        color: #667eea;
+        background: #f0f4ff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+    .bloco-item:active {
+        transform: translateY(0) scale(0.98);
+    }
+    .blocos-drag-list .hint {
+        margin: 4px 2px 0 2px;
+        font-size: 12px;
+        color: #6b7280;
+        text-align: center;
+    }
+
+    /* Botão para inserir produto no slot */
+    .btn-inserir-produto {
+        border: 2px dashed #cbd5e0;
+        background: #ffffff;
+        color: #4b5563;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .btn-inserir-produto:hover {
+        border-color: #667eea;
+        color: #667eea;
+        background: #f0f4ff;
+    }
+
+    /* Modal de seleção de produto */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.65);
+        backdrop-filter: blur(4px);
+        display: none;
         align-items: center;
         justify-content: center;
+        z-index: 10000;
+    }
+    .modal {
+        width: 720px;
+        max-width: calc(100% - 40px);
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        overflow: hidden;
+        border: 1px solid rgba(102,126,234,0.15);
+    }
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid #eef2f7;
+        background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+    }
+    .modal-header h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 800;
+        color: #1f2937;
+    }
+    .modal-close {
+        background: transparent;
+        border: none;
+        font-size: 22px;
+        cursor: pointer;
+        color: #6b7280;
         line-height: 1;
     }
-
-    .btn-reorder:hover {
-        background: #384691;
-        color: #ffffff;
-        transform: scale(1.1);
+    .modal-close:hover { 
+        color: #111827; 
     }
-
-    .btn-reorder:disabled {
-        opacity: 0.3;
-        cursor: not-allowed;
+    .modal-body {
+        padding: 16px 20px 20px 20px;
     }
-
-    .btn-reorder:disabled:hover {
-        background: transparent;
+    .resultados-modal {
+        max-height: 420px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #fff;
+    }
+    .resultados-modal .placeholder {
+        margin: 20px;
         color: #9ca3af;
-        transform: none;
+        text-align: center;
+        font-size: 14px;
+    }
+    .produto-modal-item {
+        display: grid;
+        grid-template-columns: 60px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .produto-modal-item:last-child { 
+        border-bottom: none; 
+    }
+    .produto-modal-item img {
+        width: 60px;
+        height: 60px;
+        object-fit: contain;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+    }
+    .produto-modal-item .info .nome {
+        font-weight: 700;
+        font-size: 14px;
+        color: #1f2937;
+        margin-bottom: 4px;
+    }
+    .produto-modal-item .info .detalhes {
+        font-size: 12px;
+        color: #6b7280;
+    }
+    .btn-selecionar {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+        color: #fff;
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.1s ease;
+    }
+    .btn-selecionar:hover { 
+        transform: translateY(-1px); 
     }
 </style>
 </head>
@@ -1121,64 +1371,41 @@
         <form id="formGerador">
             <div class="secao-etapa ativa" id="secaoBuilder">
                 <div class="builder-grid">
+                    <!-- Coluna esquerda: lista de blocos arrastáveis -->
                     <div class="produtos-panel">
-                        <h3>📦 Produtos</h3>
-                        
-                        <div class="search-box">
-                            <input 
-                                type="text" 
-                                id="termoBusca" 
-                                placeholder="Buscar por SKU ou EAN..."
-                                autocomplete="off"
-                            >
-                            <div class="sugestoes-dropdown" id="sugestoesDropdown"></div>
-                        </div>
+                        <h3>Blocos Disponíveis</h3>
 
-                        <h4>Produtos Selecionados <span id="contadorProdutos">0</span></h4>
-                        
-                        <div class="produtos-selecionados" id="produtosSelecionados">
-                            <div id="listaProdutos">
-                                <p style="text-align: center; color: #9ca3af; font-size: 13px; padding: 40px 0;">
-                                    Nenhum produto selecionado
-                                </p>
+                        <div class="blocos-drag-list">
+                            <div class="bloco-item" data-tipo="produtos" onclick="adicionarBloco('produtos')">
+                                📦 Bloco Produtos (1x2)
                             </div>
+                            <div class="bloco-item" data-tipo="banner_1x1" onclick="adicionarBloco('banner_1x1')">
+                                🖼️ Banner 1x1
+                            </div>
+                            <div class="bloco-item" data-tipo="banner_1x2" onclick="adicionarBloco('banner_1x2')">
+                                🖼️ Banner 1x2
+                            </div>
+                            <p class="hint">💡 Clique em um bloco para adicioná-lo ao layout</p>
                         </div>
                     </div>
 
+                    <!-- Coluna direita: Email Builder -->
                     <div class="builder-panel">
                         <div class="builder-header">
                             <h3>🎨 Layout do Email</h3>
                         </div>
 
-                        <div class="blocos-disponiveis">
-                            <button type="button" class="btn-add-bloco" onclick="adicionarBloco('produtos')">
-                                📦 Bloco Produtos (1x2)
-                            </button>
-                            <button type="button" class="btn-add-bloco" onclick="adicionarBloco('banner_1x1')">
-                                🖼️ Banner 1x1
-                            </button>
-                            <button type="button" class="btn-add-bloco" onclick="adicionarBloco('banner_1x2')">
-                                🖼️ Banner 1x2
-                            </button>
-                        </div>
-
                         <div class="builder-area" id="builderArea">
                             <div class="builder-empty">
                                 <div class="builder-empty-icon">📧</div>
-                                <p>Adicione blocos para começar a montar seu email</p>
+                                <p>Clique nos blocos à esquerda para montar seu email</p>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- <div class="actions-bar">
-                    <button type="button" class="btn-action btn-primary" onclick="avancarParaConfig()" id="btnAvancar">
-                        Avançar para Configurações →
-                    </button>
-                </div> -->
             </div>
 
-                        <div class="secao-etapa" id="secaoConfig">
+            <div class="secao-etapa" id="secaoConfig">
                 <div class="config-grid">
                     <div class="config-container">
                         <h2>⚙️ Configurações da Campanha</h2>
@@ -1270,6 +1497,29 @@
         </form>
     </div>
 
+    <!-- Modal de seleção de produto -->
+    <div id="modalProdutos" class="modal-overlay">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+            <div class="modal-header">
+                <h3 id="modalTitulo">Inserir produto</h3>
+                <button class="modal-close" type="button" aria-label="Fechar" onclick="fecharModalSelecao()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-box" style="margin-bottom: 12px;">
+                    <input 
+                        type="text" 
+                        id="buscaModal" 
+                        placeholder="Buscar por SKU, EAN ou nome..." 
+                        autocomplete="off"
+                    >
+                </div>
+                <div id="resultadosModal" class="resultados-modal">
+                    <p class="placeholder">Digite para buscar produtos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let produtosSelecionados = [];
         let layoutBlocos = [];
@@ -1277,6 +1527,8 @@
         let timeoutBusca = null;
         let produtoArrastando = null;
         let blocoIdCounter = 0;
+        let slotAlvoAtual = null; // { blocoId, slotIdx }
+        let blocoArrastandoIdx = null; // índice do bloco sendo arrastado
 
         const corPicker = document.getElementById('cor_botao_picker');
         const corHex = document.getElementById('cor_botao_hex');
@@ -1335,122 +1587,6 @@
             }
         }
 
-        async function buscarSugestoes(termo) {
-            if (!termo || termo.length < 2) {
-                document.getElementById('sugestoesDropdown').classList.remove('show');
-                return;
-            }
-
-            try {
-                const response = await fetch('/buscar-sugestoes', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ termo })
-                });
-
-                const data = await response.json();
-                if (data.success && data.sugestoes.length > 0) {
-                    mostrarSugestoes(data.sugestoes);
-                } else {
-                    mostrarSemResultados();
-                }
-            } catch (error) {
-                console.error('Erro ao buscar:', error);
-            }
-        }
-
-        function mostrarSugestoes(sugestoes) {
-            const dropdown = document.getElementById('sugestoesDropdown');
-            dropdown.innerHTML = sugestoes.map(p => `
-                <div class="sugestao-item" onclick='selecionarProduto(${JSON.stringify(p).replace(/'/g, "&apos;")})'>
-                    <img src="${p.imagem}" alt="${p.nome}" onerror="this.src='https://via.placeholder.com/50'">
-                    <div class="sugestao-info">
-                        <div class="sugestao-nome">${p.nome}</div>
-                        <div class="sugestao-detalhes">SKU: ${p.sku} | EAN: ${p.ean}</div>
-                    </div>
-                </div>
-            `).join('');
-            dropdown.classList.add('show');
-        }
-
-        function mostrarSemResultados() {
-            const dropdown = document.getElementById('sugestoesDropdown');
-            dropdown.innerHTML = '<div style="padding: 20px; text-align: center; color: #9ca3af;">Nenhum produto encontrado</div>';
-            dropdown.classList.add('show');
-        }
-
-        function selecionarProduto(produto) {
-            if (produtosSelecionados.some(p => p.url === produto.url)) {
-                mostrarMensagem('Produto já selecionado', 'erro');
-                return;
-            }
-
-            produto.is_clube = false;
-            produto.is_exclusivo = false;
-            produto.is_oferta_relampago = false;
-            produto.id = Date.now();
-
-            produtosSelecionados.push(produto);
-            renderizarProdutos();
-            document.getElementById('termoBusca').value = '';
-            document.getElementById('sugestoesDropdown').classList.remove('show');
-            mostrarMensagem('Produto adicionado', 'sucesso');
-        }
-
-        function renderizarProdutos() {
-            const lista = document.getElementById('listaProdutos');
-            const contador = document.getElementById('contadorProdutos');
-
-            contador.textContent = produtosSelecionados.length;
-
-            if (produtosSelecionados.length === 0) {
-                lista.innerHTML = '<p style="text-align: center; color: #9ca3af; font-size: 13px; padding: 40px 0;">Nenhum produto selecionado</p>';
-                return;
-            }
-
-            lista.innerHTML = produtosSelecionados.map(p => `
-                <div class="produto-card" draggable="true" data-produto-id="${p.id}" 
-                     ondragstart="iniciarArrasteProduto(event, ${p.id})">
-                    <button type="button" class="btn-remover-produto" onclick="removerProduto(${p.id})">×</button>
-                    <div class="produto-card-inner">
-                        <img src="${p.imagem}" alt="${p.nome}" onerror="this.src='https://via.placeholder.com/50'">
-                        <div class="produto-card-info">
-                            <div class="produto-card-nome">${p.nome}</div>
-                            <div class="produto-card-sku">SKU: ${p.sku}</div>
-                            <div class="produto-card-tags">
-                                <span class="tag-badge clube ${p.is_clube ? 'ativo' : ''}" 
-                                      onclick="toggleTag(${p.id}, 'clube')" 
-                                      title="Clube Koch">
-                                    ⭐ Clube
-                                </span>
-                                <span class="tag-badge exclusivo ${p.is_exclusivo ? 'ativo' : ''}" 
-                                      onclick="toggleTag(${p.id}, 'exclusivo')" 
-                                      title="Exclusivo Site">
-                                    💎 Exclusivo
-                                </span>
-                                <span class="tag-badge relampago ${p.is_oferta_relampago ? 'ativo' : ''}" 
-                                      onclick="toggleTag(${p.id}, 'relampago')" 
-                                      title="Oferta Relâmpago">
-                                    ⚡ Relâmpago
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function removerProduto(id) {
-            produtosSelecionados = produtosSelecionados.filter(p => p.id !== id);
-            renderizarProdutos();
-            mostrarMensagem('Produto removido', 'sucesso');
-        }
-
-        function iniciarArrasteProduto(event, produtoId) {
-            produtoArrastando = produtoId;
-            event.dataTransfer.effectAllowed = 'copy';
-        }
-
         function adicionarBloco(tipo) {
             const blocoId = ++blocoIdCounter;
 
@@ -1485,37 +1621,27 @@
                 area.innerHTML = `
                     <div class="builder-empty">
                         <div class="builder-empty-icon">📧</div>
-                        <p>Adicione blocos para começar a montar seu email</p>
+                        <p>Clique nos blocos à esquerda para montar seu email</p>
                     </div>
                 `;
                 return;
             }
 
             area.innerHTML = layoutBlocos.map((bloco, idx) => {
-                const podeSubir = idx > 0;
-                const podeDescer = idx < layoutBlocos.length - 1;
-                
                 const controles = `
                     <div class="block-controls">
-                        <button type="button" class="btn-reorder" 
-                                onclick="moverBloco(${idx}, -1)" 
-                                title="Mover para cima"
-                                ${!podeSubir ? 'disabled' : ''}>
-                            ▲
-                        </button>
-                        <button type="button" class="btn-reorder" 
-                                onclick="moverBloco(${idx}, 1)" 
-                                title="Mover para baixo"
-                                ${!podeDescer ? 'disabled' : ''}>
-                            ▼
-                        </button>
                         <button type="button" class="btn-remove-block" onclick="removerBloco(${idx})" title="Remover bloco">×</button>
                     </div>
                 `;
                 
                 if (bloco.tipo === 'produtos') {
                     return `
-                        <div class="layout-block">
+                        <div class="layout-block" draggable="true" data-bloco-idx="${idx}"
+                             ondragstart="iniciarArrasteBlocoLayout(event, ${idx})"
+                             ondragend="finalizarArrasteBlocoLayout(event)"
+                             ondragover="permitirDropBlocoLayout(event, ${idx})"
+                             ondragleave="removerHighlightBlocoLayout(event)"
+                             ondrop="dropBlocoLayout(event, ${idx})">
                             <div class="block-header">
                                 ${controles}
                             </div>
@@ -1526,7 +1652,12 @@
                     `;
                 } else if (bloco.tipo === 'banner_1x1') {
                     return `
-                        <div class="layout-block">
+                        <div class="layout-block" draggable="true" data-bloco-idx="${idx}"
+                             ondragstart="iniciarArrasteBlocoLayout(event, ${idx})"
+                             ondragend="finalizarArrasteBlocoLayout(event)"
+                             ondragover="permitirDropBlocoLayout(event, ${idx})"
+                             ondragleave="removerHighlightBlocoLayout(event)"
+                             ondrop="dropBlocoLayout(event, ${idx})">
                             <div class="block-header">
                                 ${controles}
                             </div>
@@ -1535,7 +1666,12 @@
                     `;
                 } else if (bloco.tipo === 'banner_1x2') {
                     return `
-                        <div class="layout-block">
+                        <div class="layout-block" draggable="true" data-bloco-idx="${idx}"
+                             ondragstart="iniciarArrasteBlocoLayout(event, ${idx})"
+                             ondragend="finalizarArrasteBlocoLayout(event)"
+                             ondragover="permitirDropBlocoLayout(event, ${idx})"
+                             ondragleave="removerHighlightBlocoLayout(event)"
+                             ondrop="dropBlocoLayout(event, ${idx})">
                             <div class="block-header">
                                 ${controles}
                             </div>
@@ -1552,126 +1688,279 @@
         function renderSlot(blocoId, slotIdx, produto) {
             if (!produto) {
                 return `
-                    <div class="produto-slot vazio" 
-                         ondrop="dropProdutoNoSlot(event, ${blocoId}, ${slotIdx})"
-                         ondragover="permitirDrop(event)"
-                         ondragleave="removerHighlight(event)">
-                        <div class="slot-vazio-texto">
-                            Arraste um produto aqui
-                        </div>
+                    <div class="produto-slot vazio">
+                        <button type="button" class="btn-inserir-produto" onclick="abrirModalSelecao(${blocoId}, ${slotIdx})">
+                            + Inserir produto
+                        </button>
                     </div>
                 `;
             }
 
             return `
                 <div class="produto-slot preenchido">
-                    <button type="button" class="btn-limpar-slot" onclick="limparSlot(${blocoId}, ${slotIdx})">×</button>
+                    <button type="button" class="btn-limpar-slot" onclick="event.stopPropagation(); limparSlot(${blocoId}, ${slotIdx})">×</button>
                     <div class="produto-slot-content">
                         <img src="${produto.imagem}" alt="${produto.nome}" onerror="this.src='https://via.placeholder.com/50'">
                         <div class="produto-slot-info">
                             <div class="produto-slot-nome">${produto.nome}</div>
                             <div class="produto-slot-sku">SKU: ${produto.sku}</div>
+                            <div class="produto-slot-selos">
+                                <button type="button" class="selo-toggle clube ${produto.is_clube ? 'ativo' : ''}" 
+                                        onclick="event.stopPropagation(); toggleSelo(${blocoId}, ${slotIdx}, 'clube')" 
+                                        title="Clube Koch">
+                                    ⭐ Clube
+                                </button>
+                                <button type="button" class="selo-toggle exclusivo ${produto.is_exclusivo ? 'ativo' : ''}" 
+                                        onclick="event.stopPropagation(); toggleSelo(${blocoId}, ${slotIdx}, 'exclusivo')" 
+                                        title="Exclusivo Site">
+                                    💎 Exclusivo
+                                </button>
+                                <button type="button" class="selo-toggle relampago ${produto.is_oferta_relampago ? 'ativo' : ''}" 
+                                        onclick="event.stopPropagation(); toggleSelo(${blocoId}, ${slotIdx}, 'relampago')" 
+                                        title="Oferta Relâmpago">
+                                    ⚡ Relâmpago
+                                </button>
+                            </div>
+                        </div>
+                        <div style="margin-left: 8px;">
+                            <button type="button" class="btn-inserir-produto" onclick="event.stopPropagation(); abrirModalSelecao(${blocoId}, ${slotIdx})" style="padding: 6px 10px; font-size: 11px;">
+                                Trocar
+                            </button>
                         </div>
                     </div>
                 </div>
             `;
         }
 
-        function permitirDrop(event) {
-            event.preventDefault();
-            event.currentTarget.classList.add('drag-over');
-        }
-
-        function removerHighlight(event) {
-            event.currentTarget.classList.remove('drag-over');
-        }
-
-        function dropProdutoNoSlot(event, blocoId, slotIdx) {
-            event.preventDefault();
-            event.currentTarget.classList.remove('drag-over');
-
-            if (!produtoArrastando) return;
-
-            const produto = produtosSelecionados.find(p => p.id === produtoArrastando);
-            if (!produto) return;
-
-            const bloco = layoutBlocos.find(b => b.id === blocoId);
-            if (!bloco) return;
-
-            if (bloco.slots.some(s => s && s.id === produto.id)) {
-                mostrarMensagem('Produto já está neste bloco', 'erro');
-                return;
-            }
-
-            bloco.slots[slotIdx] = {...produto};
-            
-            produtosSelecionados = produtosSelecionados.filter(p => p.id !== produtoArrastando);
-            
-            dadosLayoutCache = null; // Invalida cache
-            
-            renderizarProdutos();
-            renderizarLayout();
-            mostrarMensagem('Produto adicionado ao slot', 'sucesso');
-        }
-
         function limparSlot(blocoId, slotIdx) {
             const bloco = layoutBlocos.find(b => b.id === blocoId);
             if (bloco && bloco.slots[slotIdx]) {
-                const produto = bloco.slots[slotIdx];
-                
-                produtosSelecionados.push(produto);
-                
                 bloco.slots[slotIdx] = null;
                 
                 dadosLayoutCache = null; // Invalida cache
                 
-                renderizarProdutos();
                 renderizarLayout();
-                mostrarMensagem('Produto retornou para a lista', 'sucesso');
+                mostrarMensagem('Produto removido do slot', 'sucesso');
             }
         }
+
+        /* --- Modal de seleção de produto --- */
+        function abrirModalSelecao(blocoId, slotIdx) {
+            slotAlvoAtual = { blocoId, slotIdx };
+            const overlay = document.getElementById('modalProdutos');
+            const input = document.getElementById('buscaModal');
+            const resultados = document.getElementById('resultadosModal');
+            if (resultados) resultados.innerHTML = '<p class="placeholder">Digite para buscar produtos</p>';
+            if (input) input.value = '';
+            overlay.style.display = 'flex';
+            setTimeout(() => input && input.focus(), 50);
+        }
+
+        function fecharModalSelecao() {
+            const overlay = document.getElementById('modalProdutos');
+            overlay.style.display = 'none';
+            slotAlvoAtual = null;
+        }
+
+        let timeoutBuscaModal = null;
+        const buscaModalInput = document.getElementById('buscaModal');
+        if (buscaModalInput) {
+            buscaModalInput.addEventListener('input', function(e) {
+                const termo = e.target.value.trim();
+                clearTimeout(timeoutBuscaModal);
+                timeoutBuscaModal = setTimeout(() => buscarSugestoesModal(termo), 300);
+            });
+        }
+
+        async function buscarSugestoesModal(termo) {
+            const cont = document.getElementById('resultadosModal');
+            if (!cont) return;
+            if (!termo || termo.length < 2) {
+                cont.innerHTML = '<p class="placeholder">Digite pelo menos 2 caracteres</p>';
+                return;
+            }
+            try {
+                const resp = await fetch('/buscar-sugestoes', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ termo })
+                });
+                const data = await resp.json();
+                if (data.success && data.sugestoes.length) {
+                    cont.innerHTML = data.sugestoes.map(p => `
+                        <div class="produto-modal-item">
+                            <img src="${p.imagem}" alt="${p.nome}" onerror="this.src='https://via.placeholder.com/60'">
+                            <div class="info">
+                                <div class="nome">${p.nome}</div>
+                                <div class="detalhes">SKU: ${p.sku} · EAN: ${p.ean}</div>
+                            </div>
+                            <button class="btn-selecionar" onclick='selecionarProdutoParaSlot(${JSON.stringify(p).replace(/'/g, "&apos;")})'>
+                                Selecionar
+                            </button>
+                        </div>
+                    `).join('');
+                } else {
+                    cont.innerHTML = '<p class="placeholder">Nenhum produto encontrado</p>';
+                }
+            } catch (e) {
+                cont.innerHTML = '<p class="placeholder" style="color:#ef4444">Erro ao buscar produtos</p>';
+                console.error(e);
+            }
+        }
+
+        function selecionarProdutoParaSlot(produto) {
+            if (!slotAlvoAtual) return;
+            const { blocoId, slotIdx } = slotAlvoAtual;
+            const bloco = layoutBlocos.find(b => b.id === blocoId);
+            if (!bloco) return;
+
+            const prod = {
+                ...produto,
+                is_clube: false,
+                is_exclusivo: false,
+                is_oferta_relampago: false,
+                id: Date.now()
+            };
+
+            bloco.slots[slotIdx] = prod;
+
+            dadosLayoutCache = null; // Invalida cache
+            renderizarLayout();
+            fecharModalSelecao();
+            mostrarMensagem('Produto inserido no slot', 'sucesso');
+        }
+
+        function toggleSelo(blocoId, slotIdx, tipoSelo) {
+            const bloco = layoutBlocos.find(b => b.id === blocoId);
+            if (!bloco || !bloco.slots[slotIdx]) return;
+
+            const produto = bloco.slots[slotIdx];
+            
+            if (tipoSelo === 'clube') {
+                produto.is_clube = !produto.is_clube;
+            } else if (tipoSelo === 'exclusivo') {
+                produto.is_exclusivo = !produto.is_exclusivo;
+            } else if (tipoSelo === 'relampago') {
+                produto.is_oferta_relampago = !produto.is_oferta_relampago;
+            }
+
+            dadosLayoutCache = null; // Invalida cache
+            renderizarLayout();
+            
+            const nomesSelos = {
+                clube: 'Clube Koch',
+                exclusivo: 'Exclusivo Site',
+                relampago: 'Oferta Relâmpago'
+            };
+            
+            const status = produto[`is_${tipoSelo === 'relampago' ? 'oferta_relampago' : tipoSelo}`] ? 'ativado' : 'desativado';
+            mostrarMensagem(`Selo "${nomesSelos[tipoSelo]}" ${status}`, 'sucesso');
+        }
+
+        /* Fechar modal clicando fora ou com ESC */
+        document.getElementById('modalProdutos')?.addEventListener('click', (e) => {
+            if (e.target.id === 'modalProdutos') fecharModalSelecao();
+        });
+        document.addEventListener('keydown', (e) => {
+            const overlay = document.getElementById('modalProdutos');
+            if (e.key === 'Escape' && overlay && overlay.style.display === 'flex') {
+                fecharModalSelecao();
+            }
+        });
 
         function removerBloco(idx) {
             const bloco = layoutBlocos[idx];
             
-            if (bloco.tipo === 'produtos' && bloco.slots) {
-                bloco.slots.forEach(slot => {
-                    if (slot !== null) {
-                        produtosSelecionados.push(slot);
-                    }
-                });
-            }
+            // Não retorna produtos para a lista ao remover bloco
             
             layoutBlocos.splice(idx, 1);
             
             dadosLayoutCache = null; // Invalida cache
             
-            renderizarProdutos();
             renderizarLayout();
             mostrarMensagem('Bloco removido', 'sucesso');
         }
 
-        function moverBloco(indice, direcao) {
-            const novoIndice = indice + direcao;
-            
-            // Valida se o movimento é possível
-            if (novoIndice < 0 || novoIndice >= layoutBlocos.length) {
-                return;
-            }
-            
-            // Troca os blocos de posição
-            [layoutBlocos[indice], layoutBlocos[novoIndice]] = [layoutBlocos[novoIndice], layoutBlocos[indice]];
-            
-            dadosLayoutCache = null; // Invalida cache
-            
-            renderizarLayout();
-            
-            const direcaoTexto = direcao < 0 ? 'cima' : 'baixo';
-            mostrarMensagem(`Bloco movido para ${direcaoTexto}`, 'sucesso');
+        /* --- Drag & Drop para reordenar blocos no layout --- */
+        function iniciarArrasteBlocoLayout(event, idx) {
+            blocoArrastandoIdx = idx;
+            event.currentTarget.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/bloco-layout', idx.toString());
         }
 
+        function finalizarArrasteBlocoLayout(event) {
+            event.currentTarget.classList.remove('dragging');
+            blocoArrastandoIdx = null;
+            // Remove todos os highlights
+            document.querySelectorAll('.layout-block').forEach(el => {
+                el.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+        }
 
-function voltarParaBuilder() {
+        function permitirDropBlocoLayout(event, idx) {
+            event.preventDefault();
+            
+            if (blocoArrastandoIdx === null || blocoArrastandoIdx === idx) {
+                return;
+            }
+
+            const rect = event.currentTarget.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            const mouseY = event.clientY;
+            
+            // Remove classes antigas
+            event.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+            
+            // Adiciona highlight na metade correta
+            if (mouseY < midpoint) {
+                event.currentTarget.classList.add('drag-over-top');
+            } else {
+                event.currentTarget.classList.add('drag-over-bottom');
+            }
+        }
+
+        function removerHighlightBlocoLayout(event) {
+            event.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+        }
+
+        function dropBlocoLayout(event, targetIdx) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            if (blocoArrastandoIdx === null || blocoArrastandoIdx === targetIdx) {
+                return;
+            }
+
+            const rect = event.currentTarget.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            const mouseY = event.clientY;
+            
+            // Determina se deve inserir antes ou depois do alvo
+            let novoIndice;
+            if (mouseY < midpoint) {
+                // Inserir antes do alvo
+                novoIndice = targetIdx;
+            } else {
+                // Inserir depois do alvo
+                novoIndice = targetIdx + 1;
+            }
+
+            // Ajusta o índice se estiver movendo para baixo
+            if (blocoArrastandoIdx < novoIndice) {
+                novoIndice--;
+            }
+
+            // Move o bloco
+            const [blocoMovido] = layoutBlocos.splice(blocoArrastandoIdx, 1);
+            layoutBlocos.splice(novoIndice, 0, blocoMovido);
+
+            dadosLayoutCache = null; // Invalida cache
+            renderizarLayout();
+            mostrarMensagem('Bloco reordenado', 'sucesso');
+        }
+
+        function voltarParaBuilder() {
     etapaAtual = 1;
     atualizarEtapas();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1913,61 +2202,7 @@ function gerarNovo() {
             }
         });
 
-        document.getElementById('termoBusca').addEventListener('input', function(e) {
-            clearTimeout(timeoutBusca);
-            timeoutBusca = setTimeout(() => buscarSugestoes(e.target.value.trim()), 300);
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.search-box')) {
-                document.getElementById('sugestoesDropdown').classList.remove('show');
-            }
-        });
-
         atualizarEtapas();
-
-function toggleTag(produtoId, tipoTag) {
-    const produto = produtosSelecionados.find(p => p.id === produtoId);
-    if (!produto) return;
-
-    // Verifica se o produto está em algum bloco
-    let produtoNoBloco = null;
-    let blocoEncontrado = null;
-    let slotEncontrado = null;
-
-    layoutBlocos.forEach(bloco => {
-        if (bloco.tipo === 'produtos' && bloco.slots) {
-            bloco.slots.forEach((slot, idx) => {
-                if (slot && slot.id === produtoId) {
-                    produtoNoBloco = slot;
-                    blocoEncontrado = bloco;
-                    slotEncontrado = idx;
-                }
-            });
-        }
-    });
-
-    // Alterna o estado da tag
-    if (tipoTag === 'clube') {
-        produto.is_clube = !produto.is_clube;
-        if (produtoNoBloco) produtoNoBloco.is_clube = produto.is_clube;
-    } else if (tipoTag === 'exclusivo') {
-        produto.is_exclusivo = !produto.is_exclusivo;
-        if (produtoNoBloco) produtoNoBloco.is_exclusivo = produto.is_exclusivo;
-    } else if (tipoTag === 'relampago') {
-        produto.is_oferta_relampago = !produto.is_oferta_relampago;
-        if (produtoNoBloco) produtoNoBloco.is_oferta_relampago = produto.is_oferta_relampago;
-    }
-
-    // Atualiza a visualização
-    renderizarProdutos();
-    
-    // Se o produto está em um bloco, invalida o cache para regerar com as novas tags
-    if (produtoNoBloco) {
-        dadosLayoutCache = null;
-        renderizarLayout();
-    }
-}
     </script>
 </body>
 </html>
