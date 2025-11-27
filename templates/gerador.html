@@ -2055,10 +2055,16 @@ async function avancarParaConfig() {
                     const iframe = document.createElement('iframe');
                     iframe.srcdoc = result.html;
                     iframe.onload = function() {
-                        this.style.height = (this.contentWindow.document.body.scrollHeight + 5) + 'px';
+                        try {
+                            this.style.height = (this.contentWindow.document.body.scrollHeight + 5) + 'px';
+                        } catch (e) {}
+                        // Injeta os botões de baixar por card dentro do iframe
+                        try { __injectCardDownloadButtonsInIframe(this); } catch (e) { console.warn(e); }
                     };
                     previewDiv.innerHTML = '';
                     previewDiv.appendChild(iframe);
+                    // Redundância: tenta injetar após pequeno delay caso o onload já tenha disparado
+                    setTimeout(() => { try { __injectCardDownloadButtonsInIframe(iframe); } catch (e) {} }, 400);
                 } else {
                     previewDiv.innerHTML = '<div class="preview-loading"><p style="color: #ef4444;">Erro ao gerar preview</p></div>';
                 }
@@ -2066,6 +2072,131 @@ async function avancarParaConfig() {
                 console.error('Erro ao gerar preview:', error);
                 previewDiv.innerHTML = '<div class="preview-loading"><p style="color: #ef4444;">Erro ao gerar preview</p></div>';
             }
+        }
+
+        // Injeta botões de download por card dentro do iframe do preview (gera PNG via html2canvas)
+        function __injectCardDownloadButtonsInIframe(iframe) {
+            if (!iframe) return;
+            const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (!doc) return;
+
+            // CSS para botão
+            const styleId = 'card-download-style';
+            if (!doc.getElementById(styleId)) {
+                const style = doc.createElement('style');
+                style.id = styleId;
+                style.textContent = `
+                    .__card-download-container { position: relative; }
+                    .__card-download-btn {
+                        position: absolute; top: 6px; right: 6px; z-index: 9999;
+                        background: #122447; color: #fff; border: none;
+                        border-radius: 16px; padding: 6px 8px; font-size: 11px; font-weight: 700;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer; line-height: 1;
+                    }
+                    .__card-download-btn:hover { filter: brightness(1.05); }
+                    .__card-download-btn svg { width: 14px; height: 14px; vertical-align: middle; margin-right: 4px; }
+                `;
+                doc.head.appendChild(style);
+            }
+
+            // Garante html2canvas no iframe
+            async function ensureHtml2Canvas() {
+                if (iframe.contentWindow && iframe.contentWindow.html2canvas) return;
+                await new Promise((resolve, reject) => {
+                    const s = doc.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                    s.onload = () => resolve();
+                    s.onerror = reject;
+                    doc.head.appendChild(s);
+                });
+            }
+
+            function prepareImagesForCanvas(rootEl) {
+                rootEl.querySelectorAll('img').forEach(img => {
+                    try { if (!img.getAttribute('crossorigin')) img.setAttribute('crossorigin','anonymous'); } catch {}
+                });
+            }
+
+            function sanitizeFilename(text, fallback) {
+                try {
+                    const sanitized = (text || fallback || 'card')
+                        .toString()
+                        .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+                        .replace(/[^a-zA-Z0-9-_\.]+/g, '-')
+                        .replace(/-+/g, '-')
+                        .replace(/^-|-$/g, '')
+                        .toLowerCase();
+                    return sanitized || fallback || 'card';
+                } catch { return fallback || 'card'; }
+            }
+
+            function getProductNameFromCard(el, index) {
+                let name = '';
+                const candidates = el.querySelectorAll('td, span, div');
+                for (const c of candidates) {
+                    const txt = (c.textContent || '').trim();
+                    if (txt && txt.length > 3 && txt.length < 120 && /[a-zA-Z]/.test(txt)) { name = txt; break; }
+                }
+                return name || `produto-${String(index + 1).padStart(2,'0')}`;
+            }
+
+            async function captureCard(cardEl, index) {
+                const btn = cardEl.querySelector('.__card-download-btn');
+                const prevDisplay = btn ? btn.style.display : '';
+                if (btn) btn.style.display = 'none';
+                prepareImagesForCanvas(cardEl);
+                try {
+                    await ensureHtml2Canvas();
+                    const html2canvas = iframe.contentWindow.html2canvas;
+                    const canvas = await html2canvas(cardEl, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', imageTimeout: 15000, logging: false });
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const productName = sanitizeFilename(getProductNameFromCard(cardEl, index), `produto-${index+1}`);
+                    const a = document.createElement('a');
+                    a.href = dataUrl; a.download = `${productName}.png`; document.body.appendChild(a); a.click(); a.remove();
+                } catch (err) {
+                    console.error('Falha ao capturar card, tentando proxy...', err);
+                    try {
+                        const imgs = Array.from(cardEl.querySelectorAll('img'));
+                        for (const img of imgs) {
+                            const src = img.getAttribute('src') || '';
+                            if (!src) continue;
+                            const resp = await fetch('/api/proxy-imagem', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: src }) });
+                            if (!resp.ok) continue;
+                            const blob = await resp.blob();
+                            const blobUrl = URL.createObjectURL(blob);
+                            img.setAttribute('src', blobUrl);
+                        }
+                        const html2canvas = iframe.contentWindow.html2canvas;
+                        const canvas = await html2canvas(cardEl, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', imageTimeout: 15000, logging: false });
+                        const dataUrl = canvas.toDataURL('image/png');
+                        const productName = sanitizeFilename(getProductNameFromCard(cardEl, index), `produto-${index+1}`);
+                        const a = document.createElement('a');
+                        a.href = dataUrl; a.download = `${productName}.png`; document.body.appendChild(a); a.click(); a.remove();
+                    } catch (e2) {
+                        console.error('Proxy fallback falhou:', e2);
+                        alert('Não foi possível baixar a imagem deste card.');
+                    }
+                } finally {
+                    if (btn) btn.style.display = prevDisplay;
+                }
+            }
+
+            // Seleciona os cards
+            const cards = Array.from(doc.querySelectorAll('div.column'));
+            if (!cards.length) return;
+            cards.forEach((cardEl, idx) => {
+                try {
+                    if (!cardEl.classList.contains('__card-download-container')) cardEl.classList.add('__card-download-container');
+                    if (cardEl.querySelector('.__card-download-btn')) return;
+                    const btn = doc.createElement('button');
+                    btn.className = '__card-download-btn';
+                    btn.setAttribute('data-html2canvas-ignore','true');
+                    btn.title = 'Baixar card como imagem';
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v12" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 10l5 5 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Baixar';
+                    btn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); captureCard(cardEl, idx); });
+                    cardEl.appendChild(btn);
+                } catch (e) { console.warn('Falha ao adicionar botão:', e); }
+            });
         }
 
         function visualizarHTML() {

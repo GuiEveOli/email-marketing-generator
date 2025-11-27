@@ -616,12 +616,12 @@ def buscar_produtos(produtos_info, template_base_html, utm_source="email-mkt", u
         <tbody>
             <tr>
                 <!-- Coluna da Imagem -->
-                <td class="product-image-cell" valign="top" align="center" style="width: 120px;">
+                <td class="product-image-cell" valign="center" align="center" style="width: 120px;">
                     <table width="100%" border="0" cellpadding="0" cellspacing="0">
                         <tbody>
                             {html_selo_oferta}
                             <tr>
-                                <td align="center" valign="top">
+                                <td align="center" valign="center">
                                     <a target="_blank" href="{url_com_utm}">
                                         <img alt="{nome_produto}" 
                                              style="display: block; margin: 0px auto; max-width: 120px;" 
@@ -953,12 +953,12 @@ def processar_produto_individual(url, utm_source, utm_campaign, contador_produto
         <tbody>
             <tr>
                 <!-- Coluna da Imagem -->
-                <td class="product-image-cell" valign="top" align="center" style="width: 120px;">
+                <td class="product-image-cell" valign="center" align="center" style="width: 120px;">
                     <table width="100%" border="0" cellpadding="0" cellspacing="0">
                         <tbody>
                             {html_selo_oferta}
                             <tr>
-                                <td align="center" valign="top">
+                                <td align="center" valign="center">
                                     <a target="_blank" href="{url_com_utm}">
                                         <img alt="{nome_produto}" 
                                              style="display: block; margin: 0px auto; max-width: 120px;" 
