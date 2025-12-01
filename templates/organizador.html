@@ -4,94 +4,504 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Organizador de Pastas</title>
-    <!-- SheetJS (xlsx.js) para ler arquivos Excel -->
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- JSZip.js para criar arquivos .zip -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --secondary: #64748b;
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --radius: 12px;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding-bottom: 40px;
+        }
+
+        /* Navigation */
+        .top-nav-organizador {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        }
+
+        .nav-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background-color: #eff6ff;
+            color: var(--primary);
+        }
+
+        /* Layout Grid */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 400px 1fr; /* Coluna fixa para form, resto para preview */
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 0 24px 0;
+            color: var(--text-main);
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 12px;
+        }
+
+        /* Forms */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .form-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .input-field, .file-input {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .file-input {
+            background: #f8fafc;
+            cursor: pointer;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #f1f5f9;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Status Messages */
+        .status-message {
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-top: 12px;
+            line-height: 1.4;
+        }
+
+        .status-info { background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; }
+        .status-success { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        .status-error { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+
+        /* Preview Area */
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .tabs-container {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-muted);
+        }
+
+        .tab-btn:hover { background: #f1f5f9; }
+        .tab-btn.active {
+            background: var(--text-main);
+            color: white;
+            border-color: var(--text-main);
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .preview-grid {
+                grid-template-columns: 1fr; /* mobile: uma coluna */
+            }
+        }
+
+        /* Produto Card no Preview */
+        .preview-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: transform 0.2s;
+        }
+
+        .preview-card:hover {
+            border-color: #cbd5e1;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+
+        .card-header-flex {
+            display: flex;
+            gap: 16px;
+        }
+
+        .card-img-box {
+            width: 80px;
+            height: 80px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+            border: 1px solid var(--border);
+            position: relative;
+            cursor: pointer;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+
+        .card-img-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .card-img-box:hover {
+            box-shadow: 0 8px 16px -4px rgb(0 0 0 / 0.15);
+            transform: translateY(-2px);
+        }
+
+        .card-img-box::after {
+            content: 'ver imagem';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(30, 41, 59, 0.0);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            opacity: 0;
+            transition: all 0.2s;
+            pointer-events: none;
+        }
+
+        .card-img-box:hover::after {
+            background: rgba(30, 41, 59, 0.35);
+            opacity: 1;
+        }
+
+        .card-meta {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .card-sku { font-weight: 700; font-size: 1.1rem; color: var(--text-main); margin-bottom: 4px; }
+        .card-tag { font-size: 0.8rem; color: white; background: var(--secondary); padding: 2px 8px; border-radius: 4px; display: inline-block; margin-bottom: 4px; }
+        .card-sub { font-size: 0.8rem; color: var(--text-muted); }
+
+        .price-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+
+        .price-table th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 4px; border-bottom: 1px solid var(--border); }
+        .price-table td { padding: 4px; border-bottom: 1px solid #f1f5f9; color: var(--text-main); }
+        .price-table tr:last-child td { border-bottom: none; }
+        .price-min { color: #000000; }
+        .price-max { color: #1d4ed8; }
+        
+        .badge-desc {
+            color: #16a34a;
+            font-weight: 700;
+            background: #dcfce7;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .badge-desc--min {
+            color: #b91c1c;
+            background: #fee2e2;
+        }
+        .badge-desc--max {
+            color: #1d4ed8;
+            background: #dbeafe;
+        }
+
+        /* Modal de Imagem */
+        .image-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .image-modal.active { display: flex; }
+        .modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            opacity: 0;
+        }
+        .modal-content {
+            position: relative;
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 16px;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1001;
+            transform: translateY(6px) scale(0.98);
+            opacity: 0;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes modalScaleIn {
+            0% { transform: translateY(6px) scale(0.98); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .image-modal.active .modal-backdrop {
+            animation: modalFadeIn 180ms ease-out forwards;
+        }
+        .image-modal.active .modal-content {
+            animation: modalScaleIn 200ms ease-out forwards;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .modal-title { font-weight: 700; color: var(--text-main); }
+        .modal-close {
+            border: none; background: transparent; cursor: pointer; font-size: 20px; color: var(--text-muted);
+        }
+        .modal-image-box {
+            flex: 1; display: flex; align-items: center; justify-content: center; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc;
+        }
+        .modal-image-box img { max-width: 85vw; max-height: 70vh; object-fit: contain; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .btn-download { background: var(--primary); color: white; padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; }
+        .btn-download:hover { background: var(--primary-hover); }
+    </style>
 </head>
 <body class="organizador-page">
 
-    <main>
 
-        <header class="top-nav-organizador" style="padding: 8px 0;">
-            <div class="nav-inner">
-                <nav class="nav-links">
-                    <a href="/" class="{% if current == '/' %}active{% endif %}">Hub</a>
-                    <a href="/gerador" class="{% if current.startswith('/gerador') %}active{% endif %}">Gerador</a>
-                    <a href="/skuconsult" class="{% if current.startswith('/skuconsult') %}active{% endif %}">SKU Consult</a>
-                    <a href="/organizador" class="{% if current.startswith('/organizador') %}active{% endif %}">Organizador</a>
-                </nav>
-            </div>
-        </header>
+    <main class="main-container">
 
+        <div class="card">
+            <h1 class="page-title">Configuração</h1>
+            
+            <form class="form-group">
+                <div class="form-field">
+                    <label for="excel_file" class="form-label">1. Arquivo Excel (.xlsx)</label>
+                    <input type="file" id="excel_file" accept=".xlsx, .xls" class="file-input">
+                    <small class="form-hint">Contendo estrutura de pastas e SKUs</small>
+                </div>
 
-        <div class="container">
-            <div class="card" style="padding: 20px 60px;">
-                <h1 class="page-title" style="margin-bottom: 20px;">Organizador de Pastas</h1>
-                
-                <form class="form-group">
-                    <!-- Passo 1: Upload do Excel -->
-                    <div class="form-field">
-                        <label for="excel_file" class="form-label">
-                            <strong>1.</strong> Arquivo Excel (.xlsx)
-                        </label>
-                        <input type="file" id="excel_file" accept=".xlsx, .xls" class="file-input">
-                        <small class="form-hint">Selecione o arquivo Excel com a estrutura de pastas e SKUs</small>
-                    </div>
+                <hr style="border: 0; border-top: 1px solid #f1f5f9; width: 100%; margin: 4px 0;">
 
-                    <!-- Grid para campos 2, 3 e 4 lado a lado -->
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
-                        
-                        <!-- Passo 2: Nome da Coluna do Criativo -->
-                        <div class="form-field">
-                            <label for="creative_column" class="form-label">
-                                <strong>2.</strong> Nome da Coluna do Criativo (Nível 2)
-                            </label>
-                            <input 
-                                type="text" 
-                                id="creative_column" 
-                                placeholder="Ex: Nome do Criativo, Peça, etc." 
-                                class="input-field"
-                            >
-                        </div>
+                <div class="form-field">
+                    <label for="sku_column" class="form-label">Nome da Coluna do SKU</label>
+                    <input type="text" id="sku_column" placeholder="Padrão: Coluna E" class="input-field" value="CHAMADA">
+                </div>
 
-                        <!-- Passo 3: Nome da Coluna do SKU -->
-                        <div class="form-field">
-                            <label for="sku_column" class="form-label">
-                                <strong>3.</strong> Nome da Coluna do SKU (opcional)
-                            </label>
-                            <input 
-                                type="text" 
-                                id="sku_column" 
-                                placeholder="Ex: SKU, COD_PRODUTO, Código, etc." 
-                                class="input-field"
-                            >
-                        </div>
+                <div class="form-field">
+                    <label for="sales_column" class="form-label">Coluna de Vendas (Opcional)</label>
+                    <input type="text" id="sales_column" placeholder="Ex: Vendas, Quantidade (Padrão: H)" class="input-field" value="NRO PEDIDOS">
+                </div>
 
-                        <!-- Passo 4: Nome da Coluna de Vendas -->
-                        <div class="form-field">
-                            <label for="sales_column" class="form-label">
-                                <strong>4.</strong>Coluna de Vendas (opcional)
-                            </label>
-                            <input 
-                                type="text" 
-                                id="sales_column" 
-                                placeholder="Ex: Vendas, Quantidade, Total Vendido, etc." 
-                                class="input-field"
-                            >
-                        </div>
-                        
-                    </div>
+                <div class="form-field">
+                    <label for="final_price_column" class="form-label">Coluna Preço Final</label>
+                    <input type="text" id="final_price_column" placeholder="Ex: Preço Promo (Padrão: G)" class="input-field" value="PRECO_VAREJO">
+                </div>
 
-                    <!-- Área de Status e Erros -->
-                    <div id="status" class="status-message" role="alert" style="display: none;"></div>
+                <div id="status" class="status-message" role="alert" style="display: none;"></div>
 
-                    <!-- Passo 5: Botão de Ação -->
+                <div class="btn-group">
                     <button type="button" id="process_button" class="btn btn-primary">
-                        🚀 Gerar Pastas (.zip)
+                        🔍 Processar & Gerar Preview
                     </button>
-                </form>
+                    <button type="button" id="download_zip_button" class="btn btn-secondary" disabled>
+                        📦 Baixar Estrutura (.zip)
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card" id="preview_section" style="display:none; min-height: 500px;">
+            <div class="preview-header">
+                <h2 style="margin:0; font-size:1.25rem;">Preview dos Produtos</h2>
+                <small id="preview_info" style="color: var(--text-muted);"></small>
+            </div>
+            
+            <div id="tabs_container" class="tabs-container"></div>
+            
+            <div id="preview_container" class="preview-grid"></div>
+        </div>
+
+        <!-- Modal de Imagem -->
+        <div id="image_modal" class="image-modal" aria-hidden="true">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content" role="dialog" aria-modal="true">
+                <div class="modal-header">
+                    <div class="modal-title" id="modal_title">Imagem do produto</div>
+                    <button id="modal_close" class="modal-close" aria-label="Fechar">✕</button>
+                </div>
+                <div class="modal-image-box">
+                    <img id="modal_image" alt="Imagem do produto">
+                </div>
+                <div class="modal-actions">
+                    <button id="modal_download" class="btn-download">⬇️ Baixar imagem</button>
+                </div>
             </div>
         </div>
         
@@ -100,235 +510,162 @@
     <script>
         // Pega os elementos do DOM
         const fileInput = document.getElementById('excel_file');
-        const columnInput = document.getElementById('creative_column');
         const skuColumnInput = document.getElementById('sku_column');
         const salesColumnInput = document.getElementById('sales_column');
         const processButton = document.getElementById('process_button');
+        const downloadZipButton = document.getElementById('download_zip_button');
         const statusDiv = document.getElementById('status');
+        const finalPriceColumnInput = document.getElementById('final_price_column');
+        const previewSection = document.getElementById('preview_section');
+        const previewContainer = document.getElementById('preview_container');
+        const previewInfo = document.getElementById('preview_info');
+
+        // Armazena blobs de imagens já baixados para reutilizar
+        const imagemBlobsPorSKU = new Map();
+        const produtoPreviewData = [];
 
         // Adiciona o listener ao botão
         processButton.addEventListener('click', handleProcessing);
 
         async function handleProcessing() {
-            // Pega os inputs do usuário
             const excelFile = fileInput.files[0];
-            const creativeColumn = columnInput.value.trim();
             const skuColumn = skuColumnInput.value.trim();
             const salesColumn = salesColumnInput.value.trim();
+            const finalPriceColumn = finalPriceColumnInput.value.trim();
 
-            // --- 1. Validação ---
-            if (!excelFile || !creativeColumn) {
-                showStatus('Arquivo Excel e nome da coluna do criativo são obrigatórios.', true);
+            if (!excelFile) {
+                showStatus('Selecione um arquivo Excel (.xlsx).', true);
                 return;
             }
 
-            // Desabilita o botão e mostra status
             setLoading(true, 'Lendo arquivo...');
 
             try {
-                // --- 2. Funções de Normalização (portadas do Python) ---
-
-                /**
-                 * Normaliza texto para correspondência de cabeçalho (minúsculo, sem acentos).
-                 * Equivalente a `_norm` do Python.
-                 */
+                // --- Funções Auxiliares (Mesma lógica original) ---
                 function _norm(s) {
                     s = String(s || '').trim().toLowerCase();
-                    // Remove acentos (diacríticos)
                     return s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
                 }
 
-                /**
-                 * Limpa um nome para ser seguro como nome de arquivo/pasta.
-                 * Equivalente a `safe` do Python.
-                 */
                 function safe(name) {
                     name = String(name || '').trim();
                     if (!name) return '';
-                    
-                    // Remove acentos
                     name = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
-                    // Substitui / por -
                     name = name.replace(/\//g, '-');
-                    // Remove caracteres inválidos (mantém A-Z, a-z, 0-9, -, _, ., espaço)
                     name = name.replace(/[^A-Za-z0-9\-\._ ]/g, '');
-                    // Substitui múltiplos espaços por um
                     name = name.replace(/\s+/g, ' ').trim();
-                    // Limita o tamanho
                     return name.substring(0, 120);
                 }
 
-                /**
-                 * Converte valor de vendas para número
-                 */
                 function parseVendas(valor) {
                     if (typeof valor === 'number') return valor;
                     if (!valor) return 0;
-                    
-                    // Remove tudo que não é número, ponto ou vírgula
                     let numStr = String(valor).replace(/[^\d,.-]/g, '');
-                    
-                    // Substitui vírgula por ponto
                     numStr = numStr.replace(',', '.');
-                    
                     const num = parseFloat(numStr);
                     return isNaN(num) ? 0 : num;
                 }
 
-                /**
-                 * Busca e baixa a imagem do produto via webscraping
-                 * (mesmo método do gerador de emails)
-                 */
                 async function baixarImagemPorSKU(sku) {
                     try {
                         const response = await fetch('/api/buscar-e-baixar-imagem-produto', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ sku: sku })
                         });
                         
-                        if (!response.ok) {
-                            const errorData = await response.json().catch(() => ({}));
-                            console.warn(`Erro ao baixar imagem para SKU ${sku}:`, errorData.error || response.statusText);
-                            return null;
-                        }
-                        
+                        if (!response.ok) return null;
                         const blob = await response.blob();
-                        
-                        // Verifica se realmente é uma imagem
-                        if (blob.size === 0 || !blob.type.startsWith('image/')) {
-                            console.warn(`SKU ${sku}: blob inválido (tipo: ${blob.type}, tamanho: ${blob.size})`);
-                            return null;
-                        }
-                        
+                        if (blob.size === 0 || !blob.type.startsWith('image/')) return null;
                         return blob;
                     } catch (error) {
-                        console.warn(`Erro ao processar imagem do SKU ${sku}:`, error);
+                        console.warn(`Erro imagem SKU ${sku}:`, error);
                         return null;
                     }
                 }
 
-                /**
-                 * Detecta a extensão da imagem a partir do blob
-                 */
+                async function buscarNomePorSKU(sku) {
+                    try {
+                        const resp = await fetch('/api/nome-produto-por-sku', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sku })
+                        });
+                        if (!resp.ok) return null;
+                        const data = await resp.json();
+                        if (data && data.success) return String(data.nome || '').trim();
+                        return null;
+                    } catch (e) {
+                        console.warn('Erro buscar nome por SKU', sku, e);
+                        return null;
+                    }
+                }
+
                 function getExtensaoDoBlob(blob) {
                     const mimeToExt = {
-                        'image/jpeg': 'jpg',
-                        'image/jpg': 'jpg',
-                        'image/png': 'png',
-                        'image/gif': 'gif',
-                        'image/webp': 'webp',
-                        'image/bmp': 'bmp'
+                        'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+                        'image/gif': 'gif', 'image/webp': 'webp', 'image/bmp': 'bmp'
                     };
                     return mimeToExt[blob.type] || 'jpg';
                 }
 
-                // --- 3. Leitura do Excel (usando SheetJS) ---
                 const data = await excelFile.arrayBuffer();
                 const workbook = XLSX.read(data);
                 const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // Converte para array de arrays (header: 1) para ser similar ao iter_rows
                 const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                if (rows.length < 2) {
-                    throw new Error('Planilha está vazia ou não tem cabeçalho.');
-                }
+                if (rows.length < 2) throw new Error('Planilha vazia ou sem cabeçalho.');
 
-                // --- 4. Processamento dos Cabeçalhos ---
                 setLoading(true, 'Processando colunas...');
                 
                 const headers = rows[0].map(h => String(h || '').trim());
-                const headerNormMap = new Map(headers.map(h => [_norm(h), h]));
-
-                // 4a. Resolve coluna do Criativo
-                const normCreativeColumn = _norm(creativeColumn);
-                let colCreativeName = headerNormMap.get(normCreativeColumn);
-
-                // Tenta correspondência parcial (se não achar exato)
-                if (!colCreativeName) {
-                    for (const [normHeader, origHeader] of headerNormMap.entries()) {
-                        if (normHeader.includes(normCreativeColumn)) {
-                            colCreativeName = origHeader;
-                            break;
-                        }
-                    }
-                }
-
-                if (!colCreativeName) {
-                    throw new Error(`Coluna do Criativo não encontrada: "${creativeColumn}"`);
-                }
-
-                // 4b. Resolve coluna do SKU (se fornecida)
-                let colSkuName = null;
-                let idxSku = -1;
-                if (skuColumn) {
-                    const normSkuColumn = _norm(skuColumn);
-                    colSkuName = headerNormMap.get(normSkuColumn);
-
-                    // Tenta correspondência parcial
-                    if (!colSkuName) {
-                        for (const [normHeader, origHeader] of headerNormMap.entries()) {
-                            if (normHeader.includes(normSkuColumn)) {
-                                colSkuName = origHeader;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (colSkuName) {
-                        idxSku = headers.indexOf(colSkuName);
-                        console.log(`✓ Coluna SKU encontrada: "${colSkuName}" (índice ${idxSku})`);
-                    } else {
-                        console.warn(`⚠ Coluna SKU "${skuColumn}" não encontrada. Imagens não serão baixadas.`);
-                    }
-                }
-
-                // 4c. Resolve coluna de Vendas (se fornecida)
-                let colSalesName = null;
-                let idxSales = -1;
-                if (salesColumn) {
-                    const normSalesColumn = _norm(salesColumn);
-                    colSalesName = headerNormMap.get(normSalesColumn);
-
-                    // Tenta correspondência parcial
-                    if (!colSalesName) {
-                        for (const [normHeader, origHeader] of headerNormMap.entries()) {
-                            if (normHeader.includes(normSalesColumn)) {
-                                colSalesName = origHeader;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (colSalesName) {
-                        idxSales = headers.indexOf(colSalesName);
-                        console.log(`✓ Coluna Vendas encontrada: "${colSalesName}" (índice ${idxSales})`);
-                    } else {
-                        console.warn(`⚠ Coluna Vendas "${salesColumn}" não encontrada. Todos os produtos serão processados.`);
-                    }
-                }
-
-                // 4d. Tenta detectar coluna "Dinâmica"
-                const dinamicaAliases = ['dinamica', 'dinâmica', 'categoria', 'campanha', 'grupo', 'etiqueta', 'pasta'];
-                let colDinamicaName = null;
-                for (const alias of dinamicaAliases) {
-                    if (headerNormMap.has(alias)) {
-                        colDinamicaName = headerNormMap.get(alias);
-                        break;
-                    }
-                }
-
-                // 4e. Pega os índices das colunas
-                const idxCreative = headers.indexOf(colCreativeName);
-                const idxDinamica = colDinamicaName ? headers.indexOf(colDinamicaName) : -1;
-
-                // --- 5. Agrupamento e Filtragem por Pasta (Nível 2) ---
-                setLoading(true, 'Agrupando produtos por pasta...');
                 
-                // Agrupa os produtos por pasta (dinamica + criativo)
+                // Configuração Fixa
+                const COLS = {
+                    sku: 'E', finalPrice: 'G', pedidos: 'H', creative: 'J', dinamica: 'M',
+                    precoBaseRange: ['AK','AL','AM','AN','AO','AP','AQ','AR','AS'],
+                    lojaLabels: ['5','9','23','44','47','75','76','80','81'],
+                    useFixedLetters: true
+                };
+
+                function colLetterToIndex(letter) {
+                    letter = String(letter).toUpperCase().trim();
+                    let sum = 0;
+                    for (let i = 0; i < letter.length; i++) {
+                        sum = sum * 26 + (letter.charCodeAt(i) - 64);
+                    }
+                    return sum - 1;
+                }
+
+                let idxSku = -1, idxFinalPrice = -1, idxSales = -1, idxCreative = -1, idxDinamica = -1;
+                let colFinalPriceName = null, priceBaseColumns = [];
+
+                if (COLS.useFixedLetters) {
+                    idxSku = colLetterToIndex(COLS.sku);
+                    idxFinalPrice = colLetterToIndex(COLS.finalPrice);
+                    idxSales = colLetterToIndex(COLS.pedidos);
+                    idxCreative = colLetterToIndex(COLS.creative);
+                    idxDinamica = colLetterToIndex(COLS.dinamica);
+                    colFinalPriceName = headers[idxFinalPrice] || COLS.finalPrice;
+                    priceBaseColumns = COLS.precoBaseRange.map((l, idx) => {
+                        const i = colLetterToIndex(l);
+                        const label = COLS.lojaLabels[idx] || l;
+                        return { name: label, idx: i };
+                    }).filter(c => c.idx < headers.length);
+                }
+
+                function parsePreco(valor) {
+                    if (typeof valor === 'number') return valor;
+                    if (!valor) return 0;
+                    let s = String(valor).trim().replace(/\s+/g, '').replace(/R\$|r\$/g, '').replace(/\./g, '');
+                    s = (s.match(/,/g) || []).length === 1 && !s.includes('.') ? s.replace(',', '.') : s.replace(/,/g, '.');
+                    s = s.replace(/[^0-9.\-]/g, '');
+                    const num = parseFloat(s);
+                    return isNaN(num) ? 0 : num;
+                }
+
+                setLoading(true, 'Agrupando produtos...');
+                
                 const produtosPorPasta = new Map();
                 
                 for (let i = 1; i < rows.length; i++) {
@@ -337,182 +674,251 @@
 
                     const creativeVal = safe(row[idxCreative]);
                     if (!creativeVal) continue;
-
                     const dinamicaVal = (idxDinamica !== -1 ? safe(row[idxDinamica]) : '').toUpperCase();
-
-                    // Monta a chave da pasta (nivel1 + nivel2)
-                    let pastaKey = '';
-                    if (dinamicaVal) {
-                        pastaKey += dinamicaVal + '/';
-                    }
-                    pastaKey += creativeVal + '/';
-
-                    // Pega o SKU e vendas
+                    
+                    let pastaKey = (dinamicaVal ? dinamicaVal + '/' : '') + creativeVal + '/';
                     const sku = (idxSku !== -1 && row[idxSku]) ? String(row[idxSku]).trim() : null;
                     const vendas = (idxSales !== -1 && row[idxSales] !== undefined) ? parseVendas(row[idxSales]) : 0;
 
-                    // Se não tem SKU, pula
                     if (!sku) continue;
 
-                    // Adiciona ao grupo
-                    if (!produtosPorPasta.has(pastaKey)) {
-                        produtosPorPasta.set(pastaKey, []);
-                    }
-
-                    produtosPorPasta.get(pastaKey).push({
-                        sku,
-                        vendas,
-                        pastaKey,
-                        rowIndex: i
-                    });
+                    if (!produtosPorPasta.has(pastaKey)) produtosPorPasta.set(pastaKey, []);
+                    produtosPorPasta.get(pastaKey).push({ sku, vendas, pastaKey, rowIndex: i });
                 }
 
-                // --- 6. Seleciona Top 5 por Pasta (se coluna de vendas foi informada) ---
                 const produtosSelecionados = [];
                 const MAX_POR_PASTA = 5;
 
                 for (const [pastaKey, produtos] of produtosPorPasta.entries()) {
                     let produtosOrdenados = produtos;
-
-                    // Se temos coluna de vendas, ordena por vendas (decrescente)
-                    if (idxSales !== -1) {
-                        produtosOrdenados = produtos.sort((a, b) => b.vendas - a.vendas);
-                    }
-
-                    // Pega no máximo 5
-                    const top5 = produtosOrdenados.slice(0, MAX_POR_PASTA);
-                    
-                    console.log(`📁 ${pastaKey}: ${produtos.length} produtos → Top ${top5.length} selecionados`);
-                    if (idxSales !== -1 && top5.length > 0) {
-                        console.log(`   Vendas: [${top5.map(p => p.vendas).join(', ')}]`);
-                    }
-
-                    produtosSelecionados.push(...top5);
+                    if (idxSales !== -1) produtosOrdenados = produtos.sort((a, b) => b.vendas - a.vendas);
+                    produtosSelecionados.push(...produtosOrdenados.slice(0, MAX_POR_PASTA));
                 }
 
-                console.log(`\n✓ Total de produtos selecionados: ${produtosSelecionados.length}`);
+                setLoading(true, 'Montando dados...');
 
-                // --- 7. Criação da Estrutura do ZIP ---
-                setLoading(true, 'Criando estrutura de pastas...');
-                
-                const zip = new JSZip();
-                const createdPaths = new Set();
-                
-                // Cria todas as pastas únicas
-                for (const produto of produtosSelecionados) {
-                    if (!createdPaths.has(produto.pastaKey)) {
-                        zip.file(produto.pastaKey + '.keep', '');
-                        createdPaths.add(produto.pastaKey);
-                    }
-                }
+                produtoPreviewData.length = 0;
+                // Prepara em paralelo: preços + nome
+                const buildPromises = produtosSelecionados.map(async (p) => {
+                    const row = rows[p.rowIndex];
+                    const precoFinal = (idxFinalPrice !== -1) ? parsePreco(row[idxFinalPrice]) : 0;
+                    const lojas = priceBaseColumns.map(col => {
+                        const val = parsePreco(row[col.idx]);
+                        const desconto = precoFinal > 0 && val > 0 ? ((val - precoFinal) / val) * 100 : 0;
+                        const descontoRounded = Math.floor(desconto);
+                        return { loja: col.name, precoBase: val, precoFinal: precoFinal, desconto: desconto, descontoRounded };
+                    });
+                    const nomeProduto = await buscarNomePorSKU(p.sku);
+                    produtoPreviewData.push({
+                        sku: p.sku,
+                        nome: nomeProduto || '',
+                        pastaKey: p.pastaKey,
+                        vendas: p.vendas,
+                        dinamica: p.pastaKey.split('/')[0] || '',
+                        creative: p.pastaKey.split('/').slice(-2, -1)[0] || p.pastaKey,
+                        precoFinal,
+                        lojas,
+                        imageURL: null,
+                        imageBlob: null
+                    });
+                });
+                await Promise.all(buildPromises);
 
-                if (createdPaths.size === 0) {
-                    throw new Error('Nenhuma pasta foi criada. Verifique sua planilha e o nome da coluna.');
-                }
-
-                // --- 8. Download das Imagens ---
-                let totalImagens = 0;
+                // Download Imagens
+                let totalImagens = produtoPreviewData.length;
                 let imagensBaixadas = 0;
                 let imagensErro = 0;
 
-                if (produtosSelecionados.length > 0 && idxSku !== -1) {
-                    totalImagens = produtosSelecionados.length;
-                    setLoading(true, `Baixando imagens via webscraping... (0/${totalImagens})`);
-                    
-                    const BATCH_SIZE = 3; // Processa 3 imagens por vez
-                    
-                    for (let i = 0; i < produtosSelecionados.length; i += BATCH_SIZE) {
-                        const batch = produtosSelecionados.slice(i, i + BATCH_SIZE);
-                        
-                        // Processa o lote em paralelo
-                        const promises = batch.map(async (produto) => {
-                            try {
-                                const blob = await baixarImagemPorSKU(produto.sku);
-                                
-                                if (!blob) {
-                                    console.warn(`✗ Erro ao baixar imagem para SKU ${produto.sku}`);
-                                    return { success: false, sku: produto.sku };
-                                }
-
-                                const extensao = getExtensaoDoBlob(blob);
-                                const nomeArquivo = `${safe(produto.sku)}.${extensao}`;
-                                zip.file(produto.pastaKey + nomeArquivo, blob);
-                                console.log(`✓ Imagem baixada: ${produto.pastaKey}${nomeArquivo}`);
-                                return { success: true, sku: produto.sku };
-                                
-                            } catch (error) {
-                                console.error(`✗ Erro ao processar SKU ${produto.sku}:`, error);
-                                return { success: false, sku: produto.sku };
+                if (produtoPreviewData.length > 0 && idxSku !== -1) {
+                    setLoading(true, `Baixando imagens... (0/${totalImagens})`);
+                    const BATCH_SIZE = 4;
+                    for (let i = 0; i < produtoPreviewData.length; i += BATCH_SIZE) {
+                        const batch = produtoPreviewData.slice(i, i + BATCH_SIZE);
+                        const promises = batch.map(async (prod) => {
+                            if (imagemBlobsPorSKU.has(prod.sku)) {
+                                const blob = imagemBlobsPorSKU.get(prod.sku);
+                                prod.imageBlob = blob;
+                                prod.imageURL = URL.createObjectURL(blob);
+                                return { success: true };
                             }
+                            const blob = await baixarImagemPorSKU(prod.sku);
+                            if (!blob) return { success: false };
+                            imagemBlobsPorSKU.set(prod.sku, blob);
+                            prod.imageBlob = blob;
+                            prod.imageURL = URL.createObjectURL(blob);
+                            return { success: true };
                         });
-
-                        // Aguarda o lote completar
                         const results = await Promise.all(promises);
-                        
-                        // Conta sucessos e erros
-                        results.forEach(result => {
-                            if (result.success) {
-                                imagensBaixadas++;
-                            } else {
-                                imagensErro++;
-                            }
-                        });
-
-                        // Atualiza o status
+                        results.forEach(r => { if (r.success) imagensBaixadas++; else imagensErro++; });
                         const processadas = imagensBaixadas + imagensErro;
-                        setLoading(true, `Baixando imagens via webscraping... (${processadas}/${totalImagens}) - ✓ ${imagensBaixadas} | ✗ ${imagensErro}`);
+                        setLoading(true, `Baixando imagens... (${processadas}/${totalImagens})`);
                     }
                 }
 
-                // --- 9. Geração e Download do .zip ---
-                setLoading(true, 'Gerando arquivo .zip...');
+                function formatCurrency(v) { return v ? 'R$ ' + v.toFixed(2).replace('.', ',') : '—'; }
+                function formatPct(p) { return p ? Math.floor(p) + '%' : '—'; }
 
-                // Define o nome do arquivo zip
-                const origName = excelFile.name.split('.').slice(0, -1).join('.');
-                const zipNameBase = safe(origName) || 'pastas';
-                const zipFileName = `${zipNameBase}.zip`;
+                const dinamicas = Array.from(new Set(produtoPreviewData.map(p => p.dinamica || '—')));
+                const tabsContainer = document.getElementById('tabs_container');
+                const imageModal = document.getElementById('image_modal');
+                const modalImg = document.getElementById('modal_image');
+                const modalTitle = document.getElementById('modal_title');
+                const modalCloseBtn = document.getElementById('modal_close');
+                const modalDownloadBtn = document.getElementById('modal_download');
+                let modalCurrentSKU = null;
 
-                const content = await zip.generateAsync({ type: 'blob' });
+                function renderCards(items) {
+                    const cardsHTML = items.map(prod => {
+                        // Limita a exibição de lojas no card para não ficar gigante
+                        const displayLojas = prod.lojas; 
+                        const descontosValidos = displayLojas.filter(l => l.descontoRounded > 0).map(l => l.descontoRounded);
+                        let minDesc = descontosValidos.length ? Math.min(...descontosValidos) : null;
+                        let maxDesc = descontosValidos.length ? Math.max(...descontosValidos) : null;
+                        if (minDesc !== null && maxDesc !== null && minDesc === maxDesc) {
+                            // Todos iguais após arredondamento: não destacar min/max
+                            minDesc = null;
+                            maxDesc = null;
+                        }
+                        // Min/Max de preço base (ignorando zeros)
+                        const basesValidas = displayLojas.map(l => l.precoBase).filter(v => typeof v === 'number' && v > 0);
+                        const minBase = basesValidas.length ? Math.min(...basesValidas) : null;
+                        const maxBase = basesValidas.length ? Math.max(...basesValidas) : null;
+                        
+                        const rowsHTML = displayLojas.map(l => `
+                            <tr>
+                                <td>Loja ${l.loja}</td>
+                                <td>${(minBase !== null && l.precoBase === minBase) ? `<span class="price-min">${formatCurrency(l.precoBase)}</span>` : (maxBase !== null && l.precoBase === maxBase) ? `<span class="price-max">${formatCurrency(l.precoBase)}</span>` : `${formatCurrency(l.precoBase)}`}</td>
+                                <td>${formatCurrency(l.precoFinal)}</td>
+                                <td style="text-align:right;">${l.descontoRounded > 0 ? `<span class="badge-desc ${minDesc !== null && l.descontoRounded === minDesc ? 'badge-desc--min' : ''} ${maxDesc !== null && l.descontoRounded === maxDesc ? 'badge-desc--max' : ''}">-${formatPct(l.descontoRounded)}</span>` : '-'}</td>
+                            </tr>
+                        `).join('');
 
-                // Cria um link temporário para o download
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(content);
-                link.download = zipFileName;
-                
-                // Adiciona, clica e remove o link
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                // Limpa o objeto URL
-                URL.revokeObjectURL(link.href);
-                
-                let mensagemSucesso = `Sucesso! ${createdPaths.size} pastas criadas`;
-                if (idxSales !== -1) {
-                    mensagemSucesso += ` (Top ${MAX_POR_PASTA} por pasta)`;
+                        return `
+                        <div class="preview-card">
+                            <div class="card-header-flex">
+                                <div class="card-img-box" data-sku="${prod.sku}">
+                                    ${prod.imageURL ? `<img src="${prod.imageURL}" alt="${prod.sku}">` : '<span style="font-size:24px; color:#cbd5e1;">🖼️</span>'}
+                                </div>
+                                <div class="card-meta">
+                                    <div class="card-tag">${prod.dinamica || 'Geral'}</div>
+                                    <div class="card-sku">${prod.sku}</div>
+                                    ${prod.nome ? `<div class="card-sub" title="${prod.nome}">${prod.nome}</div>` : ''}
+                                    <div class="card-sub">Vendas: ${prod.vendas}</div>
+                                </div>
+                            </div>
+                            <div>
+                                <table class="price-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Loja</th>
+                                            <th>Base</th>
+                                            <th>Final</th>
+                                            <th style="text-align:right;">Desc.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${rowsHTML}</tbody>
+                                </table>
+                            </div>
+                        </div>`;
+                    }).join('');
+                    previewContainer.innerHTML = cardsHTML || '<p style="grid-column:1/-1; text-align:center; padding:20px; color:#64748b;">Nenhum produto encontrado.</p>';
+
+                    // Liga evento de clique nas imagens
+                    previewContainer.querySelectorAll('.card-img-box').forEach(box => {
+                        box.addEventListener('click', () => {
+                            const sku = box.getAttribute('data-sku');
+                            const prod = produtoPreviewData.find(p => p.sku === sku);
+                            if (!prod || !prod.imageURL) return;
+                            modalCurrentSKU = prod.sku;
+                            modalImg.src = prod.imageURL;
+                            modalImg.alt = prod.sku;
+                            modalTitle.textContent = `Imagem do produto: ${prod.sku}`;
+                            imageModal.classList.add('active');
+                            imageModal.setAttribute('aria-hidden', 'false');
+                        });
+                    });
                 }
-                mensagemSucesso += ` em ${zipFileName}`;
-                
-                if (totalImagens > 0) {
-                    mensagemSucesso += `\n${imagensBaixadas} imagens baixadas`;
-                    if (imagensErro > 0) {
-                        mensagemSucesso += `, ${imagensErro} com erro`;
-                    }
+
+                function renderTabs(activeDinamica) {
+                    const allLabel = 'Todas';
+                    const allTabs = [allLabel, ...dinamicas];
+                    tabsContainer.innerHTML = allTabs.map(d => {
+                        const isActive = d === activeDinamica ? 'active' : '';
+                        return `<button class="tab-btn ${isActive}" data-d="${d}">${d}</button>`;
+                    }).join('');
+                    
+                    tabsContainer.querySelectorAll('button').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const d = btn.getAttribute('data-d');
+                            renderTabs(d);
+                            const items = d === allLabel ? produtoPreviewData : produtoPreviewData.filter(p => (p.dinamica || '—') === d);
+                            renderCards(items);
+                            previewInfo.textContent = `${items.length} produto(s) exibidos`;
+                        });
+                    });
                 }
-                showStatus(mensagemSucesso, false);
+
+                previewSection.style.display = 'block';
+                renderTabs('Todas');
+                renderCards(produtoPreviewData);
+                previewInfo.textContent = `Total: ${produtoPreviewData.length} produto(s)`;
+                downloadZipButton.disabled = produtoPreviewData.length === 0;
+
+                setLoading(false);
+                showStatus('Preview gerada com sucesso!', false);
+                processButton.textContent = '🔄 Reprocessar';
 
             } catch (error) {
-                console.error('Erro no processamento:', error);
+                console.error(error);
                 showStatus(`Erro: ${error.message}`, true);
-            } finally {
-                // Reabilita o botão
                 setLoading(false);
             }
         }
 
-        /**
-         * Controla o estado de carregamento do botão e da mensagem de status.
-         */
+        // Eventos do modal
+        (function setupModalEvents(){
+            const imageModal = document.getElementById('image_modal');
+            const modalCloseBtn = document.getElementById('modal_close');
+            const modalBackdrop = imageModal.querySelector('.modal-backdrop');
+            const modalDownloadBtn = document.getElementById('modal_download');
+            const modalImg = document.getElementById('modal_image');
+            let currentSKUForDownload = null;
+
+            // Atualiza SKU corrente ao abrir
+            document.addEventListener('click', (e) => {
+                if (e.target && e.target.closest('.card-img-box')) {
+                    const box = e.target.closest('.card-img-box');
+                    currentSKUForDownload = box.getAttribute('data-sku');
+                }
+            });
+
+            function closeModal(){
+                imageModal.classList.remove('active');
+                imageModal.setAttribute('aria-hidden', 'true');
+                modalImg.src = '';
+            }
+
+            modalCloseBtn.addEventListener('click', closeModal);
+            modalBackdrop.addEventListener('click', closeModal);
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+            modalDownloadBtn.addEventListener('click', () => {
+                if (!currentSKUForDownload) return;
+                const prod = produtoPreviewData.find(p => p.sku === currentSKUForDownload);
+                if (!prod || !prod.imageBlob) return;
+                const extensao = getExtensaoDoBlob(prod.imageBlob);
+                const nomeArquivo = `${prod.sku.replace(/[^A-Za-z0-9_\-\.]/g,'')}.${extensao}`;
+                const url = URL.createObjectURL(prod.imageBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = nomeArquivo;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        })();
+
         function setLoading(isLoading, message = '') {
             processButton.disabled = isLoading;
             if (isLoading) {
@@ -521,19 +927,62 @@
                 statusDiv.className = 'status-message status-info';
                 statusDiv.style.display = 'block';
             } else {
-                processButton.textContent = '🚀 Gerar Pastas (.zip)';
+                processButton.textContent = '🔍 Processar & Gerar Preview';
             }
         }
 
-        /**
-         * Mostra uma mensagem de status final (erro ou sucesso).
-         */
         function showStatus(message, isError = false) {
             statusDiv.textContent = message;
             statusDiv.className = isError ? 'status-message status-error' : 'status-message status-success';
             statusDiv.style.display = 'block';
         }
 
+        // Função utilitária usada na geração do ZIP (escopo global deste script)
+        function getExtensaoDoBlob(blob) {
+            const mimeToExt = {
+                'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+                'image/gif': 'gif', 'image/webp': 'webp', 'image/bmp': 'bmp'
+            };
+            return mimeToExt[blob.type] || 'jpg';
+        }
+
+        downloadZipButton.addEventListener('click', async () => {
+            if (downloadZipButton.disabled) return;
+            setLoading(true, 'Gerando ZIP...');
+            try {
+                const excelFile = fileInput.files[0];
+                const origName = excelFile ? excelFile.name.split('.')[0] : 'pastas';
+                const zipFileName = `${origName}_organizado.zip`;
+                
+                const zip = new JSZip();
+                const createdPaths = new Set();
+                
+                for (const prod of produtoPreviewData) {
+                    if (!createdPaths.has(prod.pastaKey)) {
+                        zip.file(prod.pastaKey + '.keep', '');
+                        createdPaths.add(prod.pastaKey);
+                    }
+                    if (prod.imageBlob) {
+                        const extensao = getExtensaoDoBlob(prod.imageBlob);
+                        const nomeArquivo = `${prod.sku.replace(/[^A-Za-z0-9_\-\.]/g,'')}.${extensao}`;
+                        zip.file(prod.pastaKey + nomeArquivo, prod.imageBlob);
+                    }
+                }
+                const content = await zip.generateAsync({ type: 'blob' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = zipFileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+                showStatus(`ZIP baixado com sucesso: ${zipFileName}`, false);
+            } catch (e) {
+                showStatus(`Erro ao gerar ZIP: ${e.message}`, true);
+            } finally {
+                setLoading(false);
+            }
+        });
     </script>
 </body>
 </html>

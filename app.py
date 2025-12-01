@@ -1660,6 +1660,27 @@ def buscar_e_baixar_imagem_produto():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# --- ROTA PARA BUSCAR NOME DO PRODUTO POR SKU ---
+@app.route('/api/nome-produto-por-sku', methods=['POST'])
+def nome_produto_por_sku():
+    """
+    Recebe JSON { sku: "..." } e retorna { success: true, sku, nome } se encontrado
+    Caso contrário, retorna erro 404.
+    """
+    try:
+        data = request.get_json() or {}
+        sku = str(data.get('sku', '')).strip()
+        if not sku:
+            return jsonify({'success': False, 'error': 'SKU não fornecido'}), 400
+
+        produto = buscar_produto(sku)
+        if not produto:
+            return jsonify({'success': False, 'error': f'SKU {sku} não encontrado'}), 404
+
+        return jsonify({'success': True, 'sku': sku, 'nome': produto.get('nome', '')})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
 # --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
 # --- ROTA PARA ORGANIZAR IMAGENS EM PASTAS ---
