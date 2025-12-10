@@ -1524,7 +1524,7 @@ body.skuconsult-page .produto-card:hover {
 
 /* Adições sugeridas para static/css/main.css */
 body.organizador-page {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #667eea;
     min-height: 100vh;
     padding: 0;
     margin: 0; /* Boa prática para remover margens padrão */

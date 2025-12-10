@@ -267,6 +267,7 @@
             flex-direction: column;
             gap: 12px;
             transition: transform 0.2s;
+            cursor: pointer;
         }
 
         .preview-card:hover {
@@ -335,18 +336,14 @@
         }
 
         .card-sku { font-weight: 700; font-size: 1.1rem; color: var(--text-main); margin-bottom: 4px; }
+        .card-line { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+        .card-sku-inline { font-weight: 700; font-size: 0.95rem; color: var(--text-main); }
         .card-tag { font-size: 0.8rem; color: white; background: var(--secondary); padding: 2px 8px; border-radius: 4px; display: inline-block; margin-bottom: 4px; }
         .card-sub { font-size: 0.8rem; color: var(--text-muted); }
 
-        .price-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.8rem;
-            margin-top: 8px;
-        }
-
-        .price-table th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 4px; border-bottom: 1px solid var(--border); }
-        .price-table td { padding: 4px; border-bottom: 1px solid #f1f5f9; color: var(--text-main); }
+        .price-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .price-table th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 6px; border-bottom: 1px solid var(--border); }
+        .price-table td { padding: 6px; border-bottom: 1px solid #f1f5f9; color: var(--text-main); }
         .price-table tr:last-child td { border-bottom: none; }
         .price-min { color: #000000; }
         .price-max { color: #1d4ed8; }
@@ -430,6 +427,19 @@
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
         .btn-download { background: var(--primary); color: white; padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; }
         .btn-download:hover { background: var(--primary-hover); }
+
+        /* Modal de Preços */
+        .prices-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .prices-modal.active { display: flex; }
+        .prices-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); opacity: 0; }
+        .prices-content { position: relative; background: white; border-radius: 12px; box-shadow: var(--shadow); padding: 16px; max-width: 720px; width: 95vw; max-height: 80vh; overflow: auto; transform: translateY(6px) scale(0.98); opacity: 0; }
+        .prices-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+        .prices-title { font-weight: 700; color: var(--text-main); }
+        .prices-close { border: none; background: transparent; cursor: pointer; font-size: 20px; color: var(--text-muted); }
+
+        /* Animações do Modal de Preços */
+        .prices-modal.active .prices-backdrop { animation: modalFadeIn 180ms ease-out forwards; }
+        .prices-modal.active .prices-content { animation: modalScaleIn 200ms ease-out forwards; }
     </style>
 </head>
 <body class="organizador-page">
@@ -480,7 +490,19 @@
         <div class="card" id="preview_section" style="display:none; min-height: 500px;">
             <div class="preview-header">
                 <h2 style="margin:0; font-size:1.25rem;">Preview dos Produtos</h2>
-                <small id="preview_info" style="color: var(--text-muted);"></small>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; color:var(--text-muted);">
+                        <input type="checkbox" id="filter_social_media" /> Produtos Social Media
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; color:var(--text-muted);">
+                        Ordenar por:
+                        <select id="sort_selector" class="input-field" style="width:auto; padding:6px 10px;">
+                            <option value="alpha">Alfabética (Nome/SKU)</option>
+                            <option value="ordem">Ordem (Coluna L)</option>
+                        </select>
+                    </label>
+                    <small id="preview_info" style="color: var(--text-muted);"></small>
+                </div>
             </div>
             
             <div id="tabs_container" class="tabs-container"></div>
@@ -504,6 +526,18 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal de Preços -->
+        <div id="prices_modal" class="prices-modal" aria-hidden="true">
+            <div class="prices-backdrop"></div>
+            <div class="prices-content" role="dialog" aria-modal="true">
+                <div class="prices-header">
+                    <div class="prices-title" id="prices_title">Preços do produto</div>
+                    <button id="prices_close" class="prices-close" aria-label="Fechar">✕</button>
+                </div>
+                <div id="prices_body"></div>
+            </div>
+        </div>
         
     </main>
 
@@ -523,6 +557,7 @@
         // Armazena blobs de imagens já baixados para reutilizar
         const imagemBlobsPorSKU = new Map();
         const produtoPreviewData = [];
+        let filtroBusca = '';
 
         // Adiciona o listener ao botão
         processButton.addEventListener('click', handleProcessing);
@@ -566,20 +601,19 @@
                     return isNaN(num) ? 0 : num;
                 }
 
-                async function baixarImagemPorSKU(sku) {
+                async function buscarImagemPreviewCSV(sku) {
                     try {
-                        const response = await fetch('/api/buscar-e-baixar-imagem-produto', {
+                        const resp = await fetch('/api/buscar-imagem-por-sku', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ sku: sku })
+                            body: JSON.stringify({ sku })
                         });
-                        
-                        if (!response.ok) return null;
-                        const blob = await response.blob();
-                        if (blob.size === 0 || !blob.type.startsWith('image/')) return null;
-                        return blob;
-                    } catch (error) {
-                        console.warn(`Erro imagem SKU ${sku}:`, error);
+                        if (!resp.ok) return null;
+                        const data = await resp.json();
+                        if (data && data.success && data.imagem) return String(data.imagem).trim();
+                        return null;
+                    } catch (e) {
+                        console.warn('Erro buscar imagem CSV por SKU', sku, e);
                         return null;
                     }
                 }
@@ -622,7 +656,7 @@
                 
                 // Configuração Fixa
                 const COLS = {
-                    sku: 'E', finalPrice: 'G', pedidos: 'H', creative: 'J', dinamica: 'M',
+                    sku: 'E', finalPrice: 'G', pedidos: 'H', creative: 'J', socialFlag: 'K', orderNum: 'L', dinamica: 'M',
                     precoBaseRange: ['AK','AL','AM','AN','AO','AP','AQ','AR','AS'],
                     lojaLabels: ['5','9','23','44','47','75','76','80','81'],
                     useFixedLetters: true
@@ -637,7 +671,7 @@
                     return sum - 1;
                 }
 
-                let idxSku = -1, idxFinalPrice = -1, idxSales = -1, idxCreative = -1, idxDinamica = -1;
+                let idxSku = -1, idxFinalPrice = -1, idxSales = -1, idxCreative = -1, idxSocialFlag = -1, idxOrderNum = -1, idxDinamica = -1;
                 let colFinalPriceName = null, priceBaseColumns = [];
 
                 if (COLS.useFixedLetters) {
@@ -646,6 +680,8 @@
                     idxSales = colLetterToIndex(COLS.pedidos);
                     idxCreative = colLetterToIndex(COLS.creative);
                     idxDinamica = colLetterToIndex(COLS.dinamica);
+                    idxSocialFlag = colLetterToIndex(COLS.socialFlag);
+                    idxOrderNum = colLetterToIndex(COLS.orderNum);
                     colFinalPriceName = headers[idxFinalPrice] || COLS.finalPrice;
                     priceBaseColumns = COLS.precoBaseRange.map((l, idx) => {
                         const i = colLetterToIndex(l);
@@ -675,6 +711,14 @@
                     const creativeVal = safe(row[idxCreative]);
                     if (!creativeVal) continue;
                     const dinamicaVal = (idxDinamica !== -1 ? safe(row[idxDinamica]) : '').toUpperCase();
+                    const socialFlagVal = (idxSocialFlag !== -1 ? String(row[idxSocialFlag] || '').trim() : '');
+                    const orderNumValRaw = (idxOrderNum !== -1 ? row[idxOrderNum] : null);
+                    const orderNumVal = (() => {
+                        if (typeof orderNumValRaw === 'number') return orderNumValRaw;
+                        if (!orderNumValRaw) return null;
+                        const n = parseInt(String(orderNumValRaw).replace(/[^0-9\-]/g, ''), 10);
+                        return isNaN(n) ? null : n;
+                    })();
                     
                     let pastaKey = (dinamicaVal ? dinamicaVal + '/' : '') + creativeVal + '/';
                     const sku = (idxSku !== -1 && row[idxSku]) ? String(row[idxSku]).trim() : null;
@@ -683,7 +727,7 @@
                     if (!sku) continue;
 
                     if (!produtosPorPasta.has(pastaKey)) produtosPorPasta.set(pastaKey, []);
-                    produtosPorPasta.get(pastaKey).push({ sku, vendas, pastaKey, rowIndex: i });
+                    produtosPorPasta.get(pastaKey).push({ sku, vendas, pastaKey, rowIndex: i, socialFlag: socialFlagVal, orderNum: orderNumVal });
                 }
 
                 const produtosSelecionados = [];
@@ -716,6 +760,8 @@
                         vendas: p.vendas,
                         dinamica: p.pastaKey.split('/')[0] || '',
                         creative: p.pastaKey.split('/').slice(-2, -1)[0] || p.pastaKey,
+                        socialMedia: (String(p.socialFlag || '').toUpperCase() === 'X'),
+                        ordemBanner: p.orderNum,
                         precoFinal,
                         lojas,
                         imageURL: null,
@@ -724,35 +770,16 @@
                 });
                 await Promise.all(buildPromises);
 
-                // Download Imagens
-                let totalImagens = produtoPreviewData.length;
-                let imagensBaixadas = 0;
-                let imagensErro = 0;
-
-                if (produtoPreviewData.length > 0 && idxSku !== -1) {
-                    setLoading(true, `Baixando imagens... (0/${totalImagens})`);
-                    const BATCH_SIZE = 4;
-                    for (let i = 0; i < produtoPreviewData.length; i += BATCH_SIZE) {
-                        const batch = produtoPreviewData.slice(i, i + BATCH_SIZE);
-                        const promises = batch.map(async (prod) => {
-                            if (imagemBlobsPorSKU.has(prod.sku)) {
-                                const blob = imagemBlobsPorSKU.get(prod.sku);
-                                prod.imageBlob = blob;
-                                prod.imageURL = URL.createObjectURL(blob);
-                                return { success: true };
-                            }
-                            const blob = await baixarImagemPorSKU(prod.sku);
-                            if (!blob) return { success: false };
-                            imagemBlobsPorSKU.set(prod.sku, blob);
-                            prod.imageBlob = blob;
-                            prod.imageURL = URL.createObjectURL(blob);
-                            return { success: true };
-                        });
-                        const results = await Promise.all(promises);
-                        results.forEach(r => { if (r.success) imagensBaixadas++; else imagensErro++; });
-                        const processadas = imagensBaixadas + imagensErro;
-                        setLoading(true, `Baixando imagens... (${processadas}/${totalImagens})`);
-                    }
+                // Imagens: agora somente preview via CSV (sem scraping)
+                setLoading(true, 'Carregando imagens de preview...');
+                const BATCH_SIZE_PREVIEW = 8;
+                for (let i = 0; i < produtoPreviewData.length; i += BATCH_SIZE_PREVIEW) {
+                    const batch = produtoPreviewData.slice(i, i + BATCH_SIZE_PREVIEW);
+                    await Promise.all(batch.map(async (prod) => {
+                        const imgUrl = await buscarImagemPreviewCSV(prod.sku);
+                        prod.imageURL = imgUrl || null; // exibe direto a URL; sem blob
+                        prod.imageBlob = null;
+                    }));
                 }
 
                 function formatCurrency(v) { return v ? 'R$ ' + v.toFixed(2).replace('.', ',') : '—'; }
@@ -766,9 +793,41 @@
                 const modalCloseBtn = document.getElementById('modal_close');
                 const modalDownloadBtn = document.getElementById('modal_download');
                 let modalCurrentSKU = null;
+                const filterSocialMediaCheckbox = document.getElementById('filter_social_media');
+                const sortSelector = document.getElementById('sort_selector');
 
                 function renderCards(items) {
-                    const cardsHTML = items.map(prod => {
+                    // Aplica filtro de busca (nome ou SKU)
+                    const query = filtroBusca.trim().toLowerCase();
+                    let filtered = query ? items.filter(p =>
+                        (p.sku || '').toLowerCase().includes(query) || (p.nome || '').toLowerCase().includes(query)
+                    ) : items;
+
+                    // Filtro independente: Produtos Social Media (flag X na coluna K)
+                    if (filterSocialMediaCheckbox && filterSocialMediaCheckbox.checked) {
+                        filtered = filtered.filter(p => !!p.socialMedia);
+                    }
+
+                    // Ordenação: alfabética ou pela ordem (coluna L)
+                    const sortMode = (sortSelector ? sortSelector.value : 'alpha');
+                    filtered = [...filtered].sort((a, b) => {
+                        if (sortMode === 'ordem') {
+                            const ao = (typeof a.ordemBanner === 'number') ? a.ordemBanner : Number.MAX_SAFE_INTEGER;
+                            const bo = (typeof b.ordemBanner === 'number') ? b.ordemBanner : Number.MAX_SAFE_INTEGER;
+                            if (ao !== bo) return ao - bo;
+                            // tie-breaker por nome depois por SKU
+                            const an = (a.nome || '').toLowerCase();
+                            const bn = (b.nome || '').toLowerCase();
+                            if (an && bn && an !== bn) return an.localeCompare(bn);
+                            return (a.sku || '').toLowerCase().localeCompare((b.sku || '').toLowerCase());
+                        } else {
+                            const an = (a.nome || '').toLowerCase();
+                            const bn = (b.nome || '').toLowerCase();
+                            if (an && bn && an !== bn) return an.localeCompare(bn);
+                            return (a.sku || '').toLowerCase().localeCompare((b.sku || '').toLowerCase());
+                        }
+                    });
+                    const cardsHTML = filtered.map(prod => {
                         // Limita a exibição de lojas no card para não ficar gigante
                         const displayLojas = prod.lojas; 
                         const descontosValidos = displayLojas.filter(l => l.descontoRounded > 0).map(l => l.descontoRounded);
@@ -784,15 +843,6 @@
                         const minBase = basesValidas.length ? Math.min(...basesValidas) : null;
                         const maxBase = basesValidas.length ? Math.max(...basesValidas) : null;
                         
-                        const rowsHTML = displayLojas.map(l => `
-                            <tr>
-                                <td>Loja ${l.loja}</td>
-                                <td>${(minBase !== null && l.precoBase === minBase) ? `<span class="price-min">${formatCurrency(l.precoBase)}</span>` : (maxBase !== null && l.precoBase === maxBase) ? `<span class="price-max">${formatCurrency(l.precoBase)}</span>` : `${formatCurrency(l.precoBase)}`}</td>
-                                <td>${formatCurrency(l.precoFinal)}</td>
-                                <td style="text-align:right;">${l.descontoRounded > 0 ? `<span class="badge-desc ${minDesc !== null && l.descontoRounded === minDesc ? 'badge-desc--min' : ''} ${maxDesc !== null && l.descontoRounded === maxDesc ? 'badge-desc--max' : ''}">-${formatPct(l.descontoRounded)}</span>` : '-'}</td>
-                            </tr>
-                        `).join('');
-
                         return `
                         <div class="preview-card">
                             <div class="card-header-flex">
@@ -800,24 +850,15 @@
                                     ${prod.imageURL ? `<img src="${prod.imageURL}" alt="${prod.sku}">` : '<span style="font-size:24px; color:#cbd5e1;">🖼️</span>'}
                                 </div>
                                 <div class="card-meta">
-                                    <div class="card-tag">${prod.dinamica || 'Geral'}</div>
-                                    <div class="card-sku">${prod.sku}</div>
+                                    <div class="card-line">
+                                        <div class="card-tag">${prod.dinamica || 'Geral'}</div>
+                                        <div class="card-sku-inline">${prod.sku}</div>
+                                    </div>
+                                    ${typeof prod.ordemBanner === 'number' ? `<div class="card-sub">Ordem: ${prod.ordemBanner}</div>` : ''}
+                                    ${prod.socialMedia ? `<div class="card-sub" style="color:#2563eb; font-weight:600;">Social Media</div>` : ''}
                                     ${prod.nome ? `<div class="card-sub" title="${prod.nome}">${prod.nome}</div>` : ''}
                                     <div class="card-sub">Vendas: ${prod.vendas}</div>
                                 </div>
-                            </div>
-                            <div>
-                                <table class="price-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Loja</th>
-                                            <th>Base</th>
-                                            <th>Final</th>
-                                            <th style="text-align:right;">Desc.</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>${rowsHTML}</tbody>
-                                </table>
                             </div>
                         </div>`;
                     }).join('');
@@ -835,6 +876,132 @@
                             modalTitle.textContent = `Imagem do produto: ${prod.sku}`;
                             imageModal.classList.add('active');
                             imageModal.setAttribute('aria-hidden', 'false');
+                        });
+                    });
+
+                    // Liga evento de clique no card para abrir modal de preços
+                    const pricesModal = document.getElementById('prices_modal');
+                    const pricesTitle = document.getElementById('prices_title');
+                    const pricesBody = document.getElementById('prices_body');
+                    previewContainer.querySelectorAll('.preview-card').forEach(card => {
+                        card.addEventListener('click', (e) => {
+                            // Evita conflito se clique foi na imagem (já abre modal de imagem)
+                            if (e.target && e.target.closest('.card-img-box')) return;
+                            const sku = card.querySelector('.card-img-box')?.getAttribute('data-sku');
+                            const prod = produtoPreviewData.find(p => p.sku === sku);
+                            if (!prod) return;
+
+                            // Monta tabela de preços para o modal
+                            // Monta tabela de preços para o modal
+                            const displayLojas = prod.lojas || [];
+                            const basesValidas = displayLojas.map(l => l.precoBase).filter(v => typeof v === 'number' && v > 0);
+                            const minBase = basesValidas.length ? Math.min(...basesValidas) : null;
+                            const maxBase = basesValidas.length ? Math.max(...basesValidas) : null;
+
+                            // Gera as linhas da tabela (lógica mantida)
+                            const rowsHTML = displayLojas.map(l => `
+                                <tr>
+                                    <td style="padding: 8px;">Loja ${l.loja}</td>
+                                    <td style="padding: 8px;">${(minBase !== null && l.precoBase === minBase) ? `<span class="price-min" style="color:green; font-weight:bold;">${formatCurrency(l.precoBase)}</span>` : (maxBase !== null && l.precoBase === maxBase) ? `<span class="price-max" style="color:red;">${formatCurrency(l.precoBase)}</span>` : `${formatCurrency(l.precoBase)}`}</td>
+                                    <td style="padding: 8px;">${formatCurrency(l.precoFinal)}</td>
+                                    <td style="text-align:right; padding: 8px;">${l.descontoRounded > 0 ? `<span class="badge-desc" style="background:#def7ec; color:#03543f; padding:2px 6px; border-radius:4px; font-size:0.85em;">-${formatPct(l.descontoRounded)}</span>` : '-'}</td>
+                                </tr>
+                            `).join('');
+
+                            pricesTitle.textContent = `Preços: ${prod.nome || prod.sku}`;
+
+                            // --- LAYOUT NOVO (FLEXBOX) ---
+                            pricesBody.innerHTML = `
+                                <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start;">
+                                    
+                                    <div id="product_info_block" class="card" style="flex: 1; min-width: 300px; padding: 16px; border: 1px solid var(--border, #e2e8f0); border-radius: 8px; background: var(--bg-card, #fff);">
+                                        <div style="display:flex; align-items:center; justify-content:center; height:100px;">
+                                            <small style="color: var(--text-muted, #64748b);">Carregando informações do produto...</small>
+                                        </div>
+                                    </div>
+
+                                    <div style="flex: 1; min-width: 300px;">
+                                        <div style="border: 1px solid var(--border, #e2e8f0); border-radius: 8px; overflow: hidden;">
+                                            <table class="price-table" style="width:100%; border-collapse: collapse; background: #fff;">
+                                                <thead style="background: var(--bg-header, #f8fafc); border-bottom: 1px solid var(--border, #e2e8f0);">
+                                                    <tr>
+                                                        <th style="padding: 10px; text-align: left;">Loja</th>
+                                                        <th style="padding: 10px; text-align: left;">Base</th>
+                                                        <th style="padding: 10px; text-align: left;">Final</th>
+                                                        <th style="padding: 10px; text-align: right;">Desc.</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>${rowsHTML}</tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            `;
+
+                            // Lógica Async para preencher a coluna da ESQUERDA
+                            (async () => {
+                                try {
+                                    const resp = await fetch('/buscar-produto', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ termo: prod.sku })
+                                    });
+                                    
+                                    let infoHtml = '';
+                                    if (resp.ok) {
+                                        const data = await resp.json();
+                                        const produtoInfo = (data && data.success) ? data.produto : null;
+                                        
+                                        const skuTxt = produtoInfo?.sku || prod.sku;
+                                        const nomeTxt = produtoInfo?.nome || prod.nome || '';
+                                        const eanTxt = produtoInfo?.ean || '-';
+                                        const imgTxt = produtoInfo?.imagem || prod.imageURL || '-';
+                                        const urlTxt = produtoInfo?.url || '-';
+                                        
+                                        // Layout interno das informações do produto (Imagem + Dados)
+                                        infoHtml = `
+                                            <div style="display:flex; gap:16px; align-items:flex-start;">
+                                                <div style="width:100px; height:100px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#f8fafc; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                                    ${imgTxt && imgTxt !== '-' ? `<img src="${imgTxt}" alt="${skuTxt}" style="width:100%; height:100%; object-fit:contain;"/>` : '<span style="font-size:24px; color:#cbd5e1;">🖼️</span>'}
+                                                </div>
+                                                <div style="flex:1; min-width:0; font-size: 0.9em;">
+                                                    <div style="margin-bottom:8px;">
+                                                        <span style="font-weight:700; color:var(--text-main, #334155);">SKU:</span> 
+                                                        <span style="color:var(--text-body, #475569);">${skuTxt}</span>
+                                                    </div>
+                                                    <div style="margin-bottom:8px;">
+                                                        <span style="font-weight:700; color:var(--text-main, #334155);">Nome:</span>
+                                                        <div style="color:var(--text-body, #475569); line-height:1.4;">${nomeTxt}</div>
+                                                    </div>
+                                                    <div style="margin-bottom:8px;">
+                                                        <span style="font-weight:700; color:var(--text-main, #334155);">EAN:</span>
+                                                        <span style="color:var(--text-body, #475569);">${eanTxt}</span>
+                                                    </div>
+                                                    
+                                                    <div style="margin-top:12px; display:flex; flex-direction:column; gap:5px;">
+                                                        ${urlTxt !== '-' ? `<a href="${urlTxt}" target="_blank" rel="noopener" style="color:#2563eb; text-decoration:none; font-size:0.85em;">🔗 Acessar Link do Produto</a>` : ''}
+                                                        ${imgTxt && imgTxt !== '-' ? `<a href="${imgTxt}" target="_blank" rel="noopener" style="color:#2563eb; text-decoration:none; font-size:0.85em;">🖼️ Ver Imagem Original</a>` : ''}
+                                                    </div>
+
+                                                </div>
+                                            </div>
+                                        `;
+                                    } else {
+                                        infoHtml = '<div style="padding:10px; color:#b91c1c; background:#fef2f2; border-radius:6px; text-align:center;">Não foi possível carregar informações.</div>';
+                                    }
+                                    
+                                    const block = document.getElementById('product_info_block');
+                                    if (block) block.innerHTML = infoHtml;
+
+                                } catch (e) {
+                                    console.error("Erro ao carregar infos", e);
+                                    const block = document.getElementById('product_info_block');
+                                    if (block) block.innerHTML = '<small style="color:red">Erro na requisição.</small>';
+                                }
+                            })();
+                            pricesModal.classList.add('active');
+                            pricesModal.setAttribute('aria-hidden', 'false');
                         });
                     });
                 }
@@ -859,6 +1026,45 @@
                 }
 
                 previewSection.style.display = 'block';
+                // Insere barra de busca
+                const header = document.querySelector('.preview-header');
+                let searchBox = document.getElementById('product_search_box');
+                if (!searchBox) {
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.id = 'product_search_box';
+                    input.placeholder = 'Buscar por nome ou SKU...';
+                    input.className = 'input-field';
+                    input.style.maxWidth = '320px';
+                    input.addEventListener('input', (e) => {
+                        filtroBusca = e.target.value || '';
+                        const activeTab = document.querySelector('.tab-btn.active');
+                        const d = activeTab ? activeTab.getAttribute('data-d') : 'Todas';
+                        const items = d === 'Todas' ? produtoPreviewData : produtoPreviewData.filter(p => (p.dinamica || '—') === d);
+                        renderCards(items);
+                        previewInfo.textContent = `${items.length} produto(s) exibidos`;
+                    });
+                    header.appendChild(input);
+                }
+                // Liga eventos dos filtros independentes
+                if (filterSocialMediaCheckbox) {
+                    filterSocialMediaCheckbox.addEventListener('change', () => {
+                        const activeTab = document.querySelector('.tab-btn.active');
+                        const d = activeTab ? activeTab.getAttribute('data-d') : 'Todas';
+                        const items = d === 'Todas' ? produtoPreviewData : produtoPreviewData.filter(p => (p.dinamica || '—') === d);
+                        renderCards(items);
+                        previewInfo.textContent = `${items.length} produto(s) exibidos`;
+                    });
+                }
+                if (sortSelector) {
+                    sortSelector.addEventListener('change', () => {
+                        const activeTab = document.querySelector('.tab-btn.active');
+                        const d = activeTab ? activeTab.getAttribute('data-d') : 'Todas';
+                        const items = d === 'Todas' ? produtoPreviewData : produtoPreviewData.filter(p => (p.dinamica || '—') === d);
+                        renderCards(items);
+                        previewInfo.textContent = `${items.length} produto(s) exibidos`;
+                    });
+                }
                 renderTabs('Todas');
                 renderCards(produtoPreviewData);
                 previewInfo.textContent = `Total: ${produtoPreviewData.length} produto(s)`;
@@ -902,21 +1108,65 @@
             modalBackdrop.addEventListener('click', closeModal);
             document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
-            modalDownloadBtn.addEventListener('click', () => {
+            modalDownloadBtn.addEventListener('click', async () => {
                 if (!currentSKUForDownload) return;
                 const prod = produtoPreviewData.find(p => p.sku === currentSKUForDownload);
-                if (!prod || !prod.imageBlob) return;
-                const extensao = getExtensaoDoBlob(prod.imageBlob);
-                const nomeArquivo = `${prod.sku.replace(/[^A-Za-z0-9_\-\.]/g,'')}.${extensao}`;
-                const url = URL.createObjectURL(prod.imageBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = nomeArquivo;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                if (!prod) return;
+                try {
+                    let blob = null;
+                    // Tenta via proxy da URL do CSV primeiro
+                    if (prod.imageURL) {
+                        const resp = await fetch('/api/proxy-imagem', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: prod.imageURL })
+                        });
+                        if (resp.ok) {
+                            blob = await resp.blob();
+                        }
+                    }
+                    // Fallback: webscraping da página do produto
+                    if (!blob) {
+                        const resp2 = await fetch('/api/buscar-e-baixar-imagem-produto', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sku: prod.sku })
+                        });
+                        if (resp2.ok) {
+                            blob = await resp2.blob();
+                        }
+                    }
+                    if (!blob) return;
+                    const extensao = getExtensaoDoBlob(blob);
+                    const nomeArquivo = `${prod.sku.replace(/[^A-Za-z0-9_\-\.]/g,'')}.${extensao}`;
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = nomeArquivo;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    console.warn('Erro ao baixar imagem do modal', e);
+                }
             });
+        })();
+
+        // Eventos do modal de preços
+        (function setupPricesModal(){
+            const pricesModal = document.getElementById('prices_modal');
+            const pricesCloseBtn = document.getElementById('prices_close');
+            const pricesBackdrop = document.querySelector('#prices_modal .prices-backdrop');
+
+            function closeModal(){
+                pricesModal.classList.remove('active');
+                pricesModal.setAttribute('aria-hidden', 'true');
+            }
+
+            pricesCloseBtn.addEventListener('click', closeModal);
+            pricesBackdrop.addEventListener('click', closeModal);
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
         })();
 
         function setLoading(isLoading, message = '') {
@@ -948,7 +1198,7 @@
 
         downloadZipButton.addEventListener('click', async () => {
             if (downloadZipButton.disabled) return;
-            setLoading(true, 'Gerando ZIP...');
+            setLoading(true, 'Baixando imagens e gerando ZIP...');
             try {
                 const excelFile = fileInput.files[0];
                 const origName = excelFile ? excelFile.name.split('.')[0] : 'pastas';
@@ -962,10 +1212,32 @@
                         zip.file(prod.pastaKey + '.keep', '');
                         createdPaths.add(prod.pastaKey);
                     }
-                    if (prod.imageBlob) {
-                        const extensao = getExtensaoDoBlob(prod.imageBlob);
+                    // Na etapa de download: buscar blob (proxy CSV → fallback scraping)
+                    let blob = null;
+                    try {
+                        if (prod.imageURL) {
+                            const resp = await fetch('/api/proxy-imagem', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ url: prod.imageURL })
+                            });
+                            if (resp.ok) blob = await resp.blob();
+                        }
+                        if (!blob) {
+                            const resp2 = await fetch('/api/buscar-e-baixar-imagem-produto', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ sku: prod.sku })
+                            });
+                            if (resp2.ok) blob = await resp2.blob();
+                        }
+                    } catch (e) {
+                        console.warn('Erro baixando imagem para ZIP', prod.sku, e);
+                    }
+                    if (blob) {
+                        const extensao = getExtensaoDoBlob(blob);
                         const nomeArquivo = `${prod.sku.replace(/[^A-Za-z0-9_\-\.]/g,'')}.${extensao}`;
-                        zip.file(prod.pastaKey + nomeArquivo, prod.imageBlob);
+                        zip.file(prod.pastaKey + nomeArquivo, blob);
                     }
                 }
                 const content = await zip.generateAsync({ type: 'blob' });
@@ -976,7 +1248,7 @@
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(link.href);
-                showStatus(`ZIP baixado com sucesso: ${zipFileName}`, false);
+                showStatus(`ZIP gerado com sucesso: ${zipFileName}`, false);
             } catch (e) {
                 showStatus(`Erro ao gerar ZIP: ${e.message}`, true);
             } finally {
