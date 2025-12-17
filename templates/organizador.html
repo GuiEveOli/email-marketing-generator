@@ -639,6 +639,7 @@
 
         // Armazena blobs de imagens já baixados para reutilizar
         const imagemBlobsPorSKU = new Map();
+        const produtoInfoCache = new Map();
         const produtoPreviewData = [];
         let filtroBusca = '';
 
@@ -879,6 +880,58 @@
                     }));
                 }
 
+                // Pré-carrega e salva em cache as informações detalhadas dos produtos (SKU, nome, ean, imagem, url)
+                setLoading(true, 'Carregando informações dos produtos...');
+                const BATCH_SIZE_INFO = 10;
+                for (let i = 0; i < produtoPreviewData.length; i += BATCH_SIZE_INFO) {
+                    const batch = produtoPreviewData.slice(i, i + BATCH_SIZE_INFO);
+                    await Promise.all(batch.map(async (prod) => {
+                        // Se já está em cache, pula
+                        if (produtoInfoCache.has(prod.sku)) return;
+                        try {
+                            const resp = await fetch('/buscar-produto', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ termo: prod.sku })
+                            });
+                            if (resp.ok) {
+                                const data = await resp.json();
+                                const produtoInfo = (data && data.success) ? data.produto : null;
+                                const cached = {
+                                    sku: produtoInfo?.sku || prod.sku,
+                                    nome: produtoInfo?.nome || prod.nome || '',
+                                    ean: produtoInfo?.ean || '-',
+                                    imagem: produtoInfo?.imagem || prod.imageURL || null,
+                                    url: produtoInfo?.url || '-'
+                                };
+                                produtoInfoCache.set(prod.sku, cached);
+                                // Atualiza nome no preview se vier do servidor
+                                if (cached.nome && !prod.nome) prod.nome = cached.nome;
+                                // Atualiza imagem se vier melhor
+                                if (cached.imagem && !prod.imageURL) prod.imageURL = cached.imagem;
+                            } else {
+                                // Falha no servidor: ainda guarda um mínimo no cache
+                                produtoInfoCache.set(prod.sku, {
+                                    sku: prod.sku,
+                                    nome: prod.nome || '',
+                                    ean: '-',
+                                    imagem: prod.imageURL || null,
+                                    url: '-'
+                                });
+                            }
+                        } catch (e) {
+                            // Erro de rede: garante cache mínimo
+                            produtoInfoCache.set(prod.sku, {
+                                sku: prod.sku,
+                                nome: prod.nome || '',
+                                ean: '-',
+                                imagem: prod.imageURL || null,
+                                url: '-'
+                            });
+                        }
+                    }));
+                }
+
                 function formatCurrency(v) { return v ? 'R$ ' + v.toFixed(2).replace('.', ',') : '—'; }
                 function formatPct(p) { return p ? Math.floor(p) + '%' : '—'; }
 
@@ -1036,67 +1089,49 @@
                                 </div>
                             `;
 
-                            // Lógica Async para preencher a coluna da ESQUERDA
-                            (async () => {
-                                try {
-                                    const resp = await fetch('/buscar-produto', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ termo: prod.sku })
-                                    });
-                                    
-                                    let infoHtml = '';
-                                    if (resp.ok) {
-                                        const data = await resp.json();
-                                        const produtoInfo = (data && data.success) ? data.produto : null;
-                                        
-                                        const skuTxt = produtoInfo?.sku || prod.sku;
-                                        const nomeTxt = produtoInfo?.nome || prod.nome || '';
-                                        const eanTxt = produtoInfo?.ean || '-';
-                                        const imgTxt = produtoInfo?.imagem || prod.imageURL || '-';
-                                        const urlTxt = produtoInfo?.url || '-';
-                                        
-                                        // Layout interno das informações do produto (Imagem + Dados)
-                                        infoHtml = `
-                                            <div style="display:flex; gap:16px; align-items:flex-start;">
-                                                <div style="width:100px; height:100px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#f8fafc; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                                                    ${imgTxt && imgTxt !== '-' ? `<img src="${imgTxt}" alt="${skuTxt}" style="width:100%; height:100%; object-fit:contain;"/>` : '<span style="font-size:24px; color:#cbd5e1;">🖼️</span>'}
-                                                </div>
-                                                <div style="flex:1; min-width:0; font-size: 0.9em;">
-                                                    <div style="margin-bottom:8px;">
-                                                        <span style="font-weight:700; color:var(--text-main, #334155);">SKU:</span> 
-                                                        <span style="color:var(--text-body, #475569);">${skuTxt}</span>
-                                                    </div>
-                                                    <div style="margin-bottom:8px;">
-                                                        <span style="font-weight:700; color:var(--text-main, #334155);">Nome:</span>
-                                                        <div style="color:var(--text-body, #475569); line-height:1.4;">${nomeTxt}</div>
-                                                    </div>
-                                                    <div style="margin-bottom:8px;">
-                                                        <span style="font-weight:700; color:var(--text-main, #334155);">EAN:</span>
-                                                        <span style="color:var(--text-body, #475569);">${eanTxt}</span>
-                                                    </div>
-                                                    
-                                                    <div style="margin-top:12px; display:flex; flex-direction:column; gap:5px;">
-                                                        ${urlTxt !== '-' ? `<a href="${urlTxt}" target="_blank" rel="noopener" style="color:#2563eb; text-decoration:none; font-size:0.85em;">🔗 Acessar Link do Produto</a>` : ''}
-                                                        ${imgTxt && imgTxt !== '-' ? `<a href="${imgTxt}" target="_blank" rel="noopener" style="color:#2563eb; text-decoration:none; font-size:0.85em;">🖼️ Ver Imagem Original</a>` : ''}
-                                                    </div>
+                            // Usa o cache pré-carregado para preencher a coluna da ESQUERDA
+                            let info = produtoInfoCache.get(prod.sku);
+                            if (!info) {
+                                // fallback mínimo mesmo sem cache
+                                info = { sku: prod.sku, nome: prod.nome || '', ean: '-', imagem: prod.imageURL || null, url: '-' };
+                            }
 
-                                                </div>
-                                            </div>
-                                        `;
-                                    } else {
-                                        infoHtml = '<div style="padding:10px; color:#b91c1c; background:#fef2f2; border-radius:6px; text-align:center;">Não foi possível carregar informações.</div>';
-                                    }
-                                    
-                                    const block = document.getElementById('product_info_block');
-                                    if (block) block.innerHTML = infoHtml;
+                            const skuTxt = info.sku || prod.sku;
+                            const nomeTxt = info.nome || prod.nome || '';
+                            const eanTxt = info.ean || '-';
+                            const imgTxt = info.imagem || prod.imageURL || '-';
+                            const urlTxt = info.url || '-';
 
-                                } catch (e) {
-                                    console.error("Erro ao carregar infos", e);
-                                    const block = document.getElementById('product_info_block');
-                                    if (block) block.innerHTML = '<small style="color:red">Erro na requisição.</small>';
-                                }
-                            })();
+                            const infoHtml = `
+                                <div style="display:flex; gap:16px; align-items:flex-start;">
+                                    <div style="width:100px; height:100px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#f8fafc; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                        ${imgTxt && imgTxt !== '-' ? `<img src="${imgTxt}" alt="${skuTxt}" style="width:100%; height:100%; object-fit:contain;"/>` : '<span style="font-size:24px; color:#cbd5e1;">🖼️</span>'}
+                                    </div>
+                                    <div style="flex:1; min-width:0; font-size: 0.9em;">
+                                        <div style="margin-bottom:8px;">
+                                            <span style="font-weight:700; color:var(--text-main, #334155);">SKU:</span> 
+                                            <span style="color:var(--text-body, #475569);">${skuTxt}</span>
+                                        </div>
+                                        <div style="margin-bottom:8px;">
+                                            <span style="font-weight:700; color:var(--text-main, #334155);">Nome:</span>
+                                            <div style="color:var(--text-body, #475569); line-height:1.4;">${nomeTxt}</div>
+                                        </div>
+                                        <div style="margin-bottom:8px;">
+                                            <span style="font-weight:700; color:var(--text-main, #334155);">EAN:</span>
+                                            <span style="color:var(--text-body, #475569);">${eanTxt}</span>
+                                        </div>
+                                        
+                                        <div style="margin-top:12px; display:flex; flex-direction:column; gap:5px;">
+                                            ${urlTxt !== '-' ? `<a href="${urlTxt}" target="_blank" rel="noopener" style="color:#2563eb; text-decoration:none; font-size:0.85em;">🔗 Acessar Link do Produto</a>` : ''}
+                                            ${imgTxt && imgTxt !== '-' ? `<a href="${imgTxt}" target="_blank" rel="noopener" style="color:#2563eb; text-decoration:none; font-size:0.85em;">🖼️ Ver Imagem Original</a>` : ''}
+                                        </div>
+
+                                    </div>
+                                </div>
+                            `;
+
+                            const block = document.getElementById('product_info_block');
+                            if (block) block.innerHTML = infoHtml;
                             pricesModal.classList.add('active');
                             pricesModal.setAttribute('aria-hidden', 'false');
                         });
@@ -1212,11 +1247,15 @@
                 try {
                     let blob = null;
                     // Tenta via proxy da URL do CSV primeiro
-                    if (prod.imageURL) {
+                    // Tenta usar imagem do cache se disponível
+                    const cached = produtoInfoCache.get(prod.sku);
+                    const cachedImage = cached?.imagem || null;
+                    const candidateUrl = cachedImage || prod.imageURL;
+                    if (candidateUrl) {
                         const resp = await fetch('/api/proxy-imagem', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ url: prod.imageURL })
+                            body: JSON.stringify({ url: candidateUrl })
                         });
                         if (resp.ok) {
                             blob = await resp.blob();
