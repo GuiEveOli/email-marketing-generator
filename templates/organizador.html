@@ -403,7 +403,7 @@
 
         .card-meta { flex: 1; min-width: 0; }
         
-        .card-line { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+        .card-line { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: nowrap; }
         .card-tag { 
             font-size: 0.7rem; 
             font-weight: 700;
@@ -412,8 +412,18 @@
             padding: 2px 8px; 
             border-radius: 4px;
             text-transform: uppercase;
+            flex-shrink: 0;
         }
-        .card-sku-inline { font-weight: 700; font-size: 0.9rem; color: var(--text-main); }
+        .card-sku-inline { 
+            font-weight: 700; 
+            font-size: 0.9rem; 
+            color: var(--text-main); 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            white-space: nowrap; 
+            flex: 1; 
+            min-width: 0;
+        }
         .card-sub { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Tabelas de Preço */
@@ -514,6 +524,50 @@
         @keyframes fadeIn { to { opacity: 1; } }
         @keyframes scaleIn { to { opacity: 1; transform: scale(1); } }
 
+        /* Loading animations for the process button */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes loadingSlide {
+            0% { left: -30%; }
+            50% { left: 50%; }
+            100% { left: 100%; }
+        }
+
+        /* Hover + pointer effects */
+        .card-img-box {
+            cursor: pointer;
+            transition: box-shadow .2s ease, transform .2s ease;
+        }
+        .card-img-box:hover {
+            box-shadow: 0 0 0 2px #e2e8f0 inset, 0 1px 4px rgba(0,0,0,0.06);
+            transform: translateY(-1px);
+        }
+        .copy-name {
+            cursor: pointer;
+            transition: color .15s ease, background-color .15s ease;
+        }
+        .copy-name:hover {
+            color: #1d4ed8; /* azul sutil */
+            text-decoration: underline;
+        }
+
+        /* Botão "Ver Promoção" efeitos sutis */
+        .btn-view-desc {
+            transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+        }
+        .btn-view-desc:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        .btn-view-desc:active {
+            background: #eef2f7;
+            border-color: #94a3b8;
+        }
+        .btn-view-desc:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(37,99,235,0.25);
+        }
+
     </style>
 </head>
 <body class="organizador-page">
@@ -528,29 +582,22 @@
                 <div class="form-field">
                     <label for="excel_file" class="form-label">1. Arquivo Excel (.xlsx)</label>
                     <input type="file" id="excel_file" accept=".xlsx, .xls" class="file-input">
-                    <small class="form-hint">Contendo estrutura de pastas e SKUs</small>
+                    <!-- <small class="form-hint">Contendo estrutura de pastas e SKUs</small>-->
                 </div>
 
-                <div class="form-field">
-                    <label for="sku_column" class="form-label">Nome da Coluna do SKU</label>
-                    <input type="text" id="sku_column" placeholder="Padrão: Coluna E" class="input-field" value="CHAMADA">
-                </div>
+                <!--<div class="form-field">
+                    <small class="form-hint">Configurações de colunas são automáticas.</small>
+                </div>-->
 
-                <div class="form-field">
-                    <label for="sales_column" class="form-label">Coluna de Vendas (Opcional)</label>
-                    <input type="text" id="sales_column" placeholder="Ex: Vendas, Quantidade (Padrão: H)" class="input-field" value="NRO PEDIDOS">
-                </div>
-
-                <div class="form-field">
-                    <label for="final_price_column" class="form-label">Coluna Preço Final</label>
-                    <input type="text" id="final_price_column" placeholder="Ex: Preço Promo (Padrão: G)" class="input-field" value="PRECO_VAREJO">
-                </div>
-
-                <div id="status" class="status-message" role="alert" style="display: none;"></div>
+                
 
                 <div class="btn-group">
-                    <button type="button" id="process_button" class="btn btn-primary">
-                        🔍 Processar & Gerar Preview
+                    <button type="button" id="process_button" class="btn btn-primary" style="position:relative; overflow:hidden; display:inline-flex; align-items:center; gap:8px;">
+                        <span class="loading-icon" aria-hidden="true" style="width:16px; height:16px; border:2px solid #c7d2fe; border-top-color:#3730a3; border-radius:50%; display:none; animation: spin .8s linear infinite;"></span>
+                        <span class="loading-text">🔍 Processar & Gerar Preview</span>
+                        <span class="loading-bar" aria-hidden="true" style="position:absolute; left:0; bottom:0; height:3px; width:100%; background:rgba(55,48,163,0.15); opacity:0;">
+                            <span class="loading-bar-fill" style="position:absolute; left:-30%; top:0; height:100%; width:30%; background:#2563eb; animation: loadingSlide 1.2s infinite;"></span>
+                        </span>
                     </button>
                     <button type="button" id="download_zip_button" class="btn btn-secondary" disabled>
                         📦 Baixar Estrutura (.zip)
@@ -627,12 +674,10 @@
     <script>
         // Pega os elementos do DOM
         const fileInput = document.getElementById('excel_file');
-        const skuColumnInput = document.getElementById('sku_column');
-        const salesColumnInput = document.getElementById('sales_column');
         const processButton = document.getElementById('process_button');
         const downloadZipButton = document.getElementById('download_zip_button');
-        const statusDiv = document.getElementById('status');
-        const finalPriceColumnInput = document.getElementById('final_price_column');
+        // status/aviso removido do DOM
+        // Campos de configuração removidos: colunas são definidas automaticamente
         const previewSection = document.getElementById('preview_section');
         const previewContainer = document.getElementById('preview_container');
         const previewInfo = document.getElementById('preview_info');
@@ -648,9 +693,7 @@
 
         async function handleProcessing() {
             const excelFile = fileInput.files[0];
-            const skuColumn = skuColumnInput.value.trim();
-            const salesColumn = salesColumnInput.value.trim();
-            const finalPriceColumn = finalPriceColumnInput.value.trim();
+            // Configurações de colunas são automáticas via mapeamento fixo
 
             if (!excelFile) {
                 showStatus('Selecione um arquivo Excel (.xlsx).', true);
@@ -740,6 +783,7 @@
                 
                 // Configuração Fixa
                 const COLS = {
+                    promoType: 'C', // tipo de preço: normal | fidelidade-tipos | pague-leve
                     sku: 'E', finalPrice: 'G', pedidos: 'H', creative: 'J', socialFlag: 'K', orderNum: 'L', dinamica: 'M',
                     precoBaseRange: ['AK','AL','AM','AN','AO','AP','AQ','AR','AS'],
                     lojaLabels: ['5','9','23','44','47','75','76','80','81'],
@@ -755,10 +799,11 @@
                     return sum - 1;
                 }
 
-                let idxSku = -1, idxFinalPrice = -1, idxSales = -1, idxCreative = -1, idxSocialFlag = -1, idxOrderNum = -1, idxDinamica = -1;
+                let idxPromoType = -1, idxSku = -1, idxFinalPrice = -1, idxSales = -1, idxCreative = -1, idxSocialFlag = -1, idxOrderNum = -1, idxDinamica = -1;
                 let colFinalPriceName = null, priceBaseColumns = [];
 
                 if (COLS.useFixedLetters) {
+                    idxPromoType = colLetterToIndex(COLS.promoType);
                     idxSku = colLetterToIndex(COLS.sku);
                     idxFinalPrice = colLetterToIndex(COLS.finalPrice);
                     idxSales = colLetterToIndex(COLS.pedidos);
@@ -843,6 +888,11 @@
                 const buildPromises = produtosSelecionados.map(async (p) => {
                     const row = rows[p.rowIndex];
                     const precoFinal = (idxFinalPrice !== -1) ? parsePreco(row[idxFinalPrice]) : 0;
+                    // Tag de preço (coluna C)
+                    const promoType = (idxPromoType !== -1 && row[idxPromoType] !== undefined) ? _norm(row[idxPromoType]) : '';
+                    let promoTag = '';
+                    if (promoType === 'fidelidade-tipos') promoTag = 'Clube K';
+                    else if (promoType === 'pague-leve') promoTag = 'L+P-';
                     const lojas = priceBaseColumns.map(col => {
                         const val = parsePreco(row[col.idx]);
                         const desconto = precoFinal > 0 && val > 0 ? ((val - precoFinal) / val) * 100 : 0;
@@ -861,6 +911,7 @@
                         socialMedia: (String(p.socialFlag || '').toUpperCase() === 'X'),
                         ordemBanner: p.orderNum,
                         precoFinal,
+                        promoTag,
                         lojas,
                         imageURL: null,
                         imageBlob: null
@@ -869,7 +920,7 @@
                 await Promise.all(buildPromises);
 
                 // Imagens: agora somente preview via CSV (sem scraping)
-                setLoading(true, 'Carregando imagens de preview...');
+                setLoading(true, 'Carregando imagens...');
                 const BATCH_SIZE_PREVIEW = 8;
                 for (let i = 0; i < produtoPreviewData.length; i += BATCH_SIZE_PREVIEW) {
                     const batch = produtoPreviewData.slice(i, i + BATCH_SIZE_PREVIEW);
@@ -881,7 +932,7 @@
                 }
 
                 // Pré-carrega e salva em cache as informações detalhadas dos produtos (SKU, nome, ean, imagem, url)
-                setLoading(true, 'Carregando informações dos produtos...');
+                setLoading(true, 'Carregando informações...');
                 const BATCH_SIZE_INFO = 10;
                 for (let i = 0; i < produtoPreviewData.length; i += BATCH_SIZE_INFO) {
                     const batch = produtoPreviewData.slice(i, i + BATCH_SIZE_INFO);
@@ -988,26 +1039,40 @@
                             minDesc = null;
                             maxDesc = null;
                         }
+                        // Valores completos para exibição (não zerar quando iguais)
+                        const minDescFull = descontosValidos.length ? Math.min(...descontosValidos) : null;
+                        const maxDescFull = descontosValidos.length ? Math.max(...descontosValidos) : null;
                         // Min/Max de preço base (ignorando zeros)
                         const basesValidas = displayLojas.map(l => l.precoBase).filter(v => typeof v === 'number' && v > 0);
                         const minBase = basesValidas.length ? Math.min(...basesValidas) : null;
                         const maxBase = basesValidas.length ? Math.max(...basesValidas) : null;
                         
                         return `
-                        <div class="preview-card">
+                        <div class="preview-card" style="cursor: default;">
                             <div class="card-header-flex">
-                                <div class="card-img-box" data-sku="${prod.sku}">
-                                    ${prod.imageURL ? `<img src="${prod.imageURL}" alt="${prod.sku}">` : '<span style="font-size:24px; color:#cbd5e1;">🖼️</span>'}
+                                <div class="card-left">
+                                    <div class="card-img-box" data-sku="${prod.sku}" style="width:120px; height:120px; border:1px solid #e5e7eb; border-radius:6px; background:#f8fafc; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                                        ${prod.imageURL 
+                                            ? `<img src="${prod.imageURL}" alt="${prod.sku}" style="width:100%; height:100%; object-fit:contain;">`
+                                            : '<span style="font-size:14px; color:#cbd5e1;">🖼️</span>'}
+                                    </div>
+                                    <div class="card-actions" style="display:flex; justify-content:flex-start; margin-top:8px;">
+                                        <button type="button" class="btn-view-desc" style="width:120px; height:32px; background:transparent; color:#334155; border:1px solid #e5e7eb; border-radius:6px; padding:0 8px; font-size:0.8em; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:background .2s ease, border-color .2s ease;">Ver Promoção</button>
+                                    </div>
                                 </div>
                                 <div class="card-meta">
                                     <div class="card-line">
                                         <div class="card-tag">${prod.dinamicaRaw || prod.dinamica || 'Geral'}</div>
-                                        <div class="card-sku-inline">${prod.sku}</div>
+                                        <div class="card-sku-inline">${prod.creative}</div>
                                     </div>
-                                    ${typeof prod.ordemBanner === 'number' ? `<div class="card-sub">Ordem: ${prod.ordemBanner}</div>` : ''}
+                                    ${typeof prod.ordemBanner === 'number' ? `<div class="card-sub"><strong>Ordem:</strong> ${prod.ordemBanner}</div>` : ''}
                                     ${prod.socialMedia ? `<div class="card-sub" style="color:#2563eb; font-weight:600;">Social Media</div>` : ''}
-                                    ${prod.nome ? `<div class="card-sub" title="${prod.nome}">${prod.nome}</div>` : ''}
-                                    <div class="card-sub">Vendas: ${prod.vendas}</div>
+                                    ${prod.nome ? `<div class="card-sub copy-name" title="Clique para copiar" data-name="${prod.nome}">${prod.nome}</div>` : ''}
+                                    ${prod.sku ? `<div class="card-sub" title="${prod.sku}"><strong>SKU:</strong> ${prod.sku}</div>` : ''}
+                                    <div class="card-sub"><strong>Preço Promocional:</strong> ${formatCurrency(prod.precoFinal)} ${prod.promoTag ? `<span class="badge-promo" style="margin-left:6px; background:#eef2ff; color:#3730a3; padding:2px 6px; border-radius:4px; font-size:0.85em;">${prod.promoTag}</span>` : ''}</div>
+                                    <div class="card-sub"><strong>Desconto:</strong> ${minDescFull !== null ? formatPct(minDescFull) : '—'}/${maxDescFull !== null ? formatPct(maxDescFull) : '—'}</div>
+                                    <div class="card-sub"><strong>Preço Base:</strong> ${minBase !== null ? formatCurrency(minBase) : '—'}/${maxBase !== null ? formatCurrency(maxBase) : '—'}</div>
+                                    <div class="card-sub"><strong>Vendas:</strong> ${prod.vendas}</div>
                                 </div>
                             </div>
                         </div>`;
@@ -1029,15 +1094,15 @@
                         });
                     });
 
-                    // Liga evento de clique no card para abrir modal de preços
+                    // Liga evento do botão "ver descrição" para abrir modal de preços
                     const pricesModal = document.getElementById('prices_modal');
                     const pricesTitle = document.getElementById('prices_title');
                     const pricesBody = document.getElementById('prices_body');
-                    previewContainer.querySelectorAll('.preview-card').forEach(card => {
-                        card.addEventListener('click', (e) => {
-                            // Evita conflito se clique foi na imagem (já abre modal de imagem)
-                            if (e.target && e.target.closest('.card-img-box')) return;
-                            const sku = card.querySelector('.card-img-box')?.getAttribute('data-sku');
+                    previewContainer.querySelectorAll('.btn-view-desc').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const card = btn.closest('.preview-card');
+                            const sku = card?.querySelector('.card-img-box')?.getAttribute('data-sku');
                             const prod = produtoPreviewData.find(p => p.sku === sku);
                             if (!prod) return;
 
@@ -1066,7 +1131,7 @@
                                     
                                     <div id="product_info_block" class="card" style="flex: 1; min-width: 300px; padding: 16px; border: 1px solid var(--border, #e2e8f0); border-radius: 8px; background: var(--bg-card, #fff);">
                                         <div style="display:flex; align-items:center; justify-content:center; height:100px;">
-                                            <small style="color: var(--text-muted, #64748b);">Carregando informações do produto...</small>
+                                            <small style="color: var(--text-muted, #64748b);">Carregando informações...</small>
                                         </div>
                                     </div>
 
@@ -1134,6 +1199,25 @@
                             if (block) block.innerHTML = infoHtml;
                             pricesModal.classList.add('active');
                             pricesModal.setAttribute('aria-hidden', 'false');
+                        });
+                    });
+
+                    // Copiar nome ao clicar
+                    previewContainer.querySelectorAll('.copy-name').forEach(el => {
+                        el.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            const name = el.getAttribute('data-name') || el.textContent || '';
+                            try {
+                                if (name) await navigator.clipboard.writeText(name);
+                            } catch (err) {
+                                // fallback simples
+                                const ta = document.createElement('textarea');
+                                ta.value = name;
+                                document.body.appendChild(ta);
+                                ta.select();
+                                try { document.execCommand('copy'); } catch (_) {}
+                                document.body.removeChild(ta);
+                            }
                         });
                     });
                 }
@@ -1307,20 +1391,23 @@
 
         function setLoading(isLoading, message = '') {
             processButton.disabled = isLoading;
+            const icon = processButton.querySelector('.loading-icon');
+            const text = processButton.querySelector('.loading-text');
+            const bar = processButton.querySelector('.loading-bar');
             if (isLoading) {
-                processButton.textContent = message || 'Processando...';
-                statusDiv.textContent = message;
-                statusDiv.className = 'status-message status-info';
-                statusDiv.style.display = 'block';
+                if (text) text.textContent = message || 'Processando...';
+                if (icon) icon.style.display = 'inline-block';
+                if (bar) bar.style.opacity = '1';
             } else {
-                processButton.textContent = '🔍 Processar & Gerar Preview';
+                if (text) text.textContent = '🔍 Processar & Gerar Preview';
+                if (icon) icon.style.display = 'none';
+                if (bar) bar.style.opacity = '0';
             }
         }
 
         function showStatus(message, isError = false) {
-            statusDiv.textContent = message;
-            statusDiv.className = isError ? 'status-message status-error' : 'status-message status-success';
-            statusDiv.style.display = 'block';
+            // Mensagens visuais removidas conforme solicitado; manter log para depuração
+            console[isError ? 'error' : 'log'](message);
         }
 
         // Função utilitária usada na geração do ZIP (escopo global deste script)
