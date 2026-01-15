@@ -1067,11 +1067,18 @@
                                     </div>
                                     ${typeof prod.ordemBanner === 'number' ? `<div class="card-sub"><strong>Ordem:</strong> ${prod.ordemBanner}</div>` : ''}
                                     ${prod.socialMedia ? `<div class="card-sub" style="color:#2563eb; font-weight:600;">Social Media</div>` : ''}
+
                                     ${prod.nome ? `<div class="card-sub copy-name" title="Clique para copiar" data-name="${prod.nome}">${prod.nome}</div>` : ''}
+
                                     ${prod.sku ? `<div class="card-sub" title="${prod.sku}"><strong>SKU:</strong> ${prod.sku}</div>` : ''}
-                                    <div class="card-sub"><strong>Preço Promocional:</strong> ${formatCurrency(prod.precoFinal)} ${prod.promoTag ? `<span class="badge-promo" style="margin-left:6px; background:#eef2ff; color:#3730a3; padding:2px 6px; border-radius:4px; font-size:0.85em;">${prod.promoTag}</span>` : ''}</div>
+
                                     <div class="card-sub"><strong>Desconto:</strong> ${minDescFull !== null ? formatPct(minDescFull) : '—'}/${maxDescFull !== null ? formatPct(maxDescFull) : '—'}</div>
-                                    <div class="card-sub"><strong>Preço Base:</strong> ${minBase !== null ? formatCurrency(minBase) : '—'}/${maxBase !== null ? formatCurrency(maxBase) : '—'}</div>
+
+                                    <div class="card-sub"><strong>Preço Base:</strong> ${minBase !== null ? formatCurrency(minBase) : '—'}/${maxBase !== null ? formatCurrency(maxBase) : '—'}</div>     
+
+                                    <div class="card-sub"><strong>Preço Promocional:</strong> ${formatCurrency(prod.precoFinal)} ${prod.promoTag ? `<span class="badge-promo" style="margin-left:6px; background:#eef2ff; color:#3730a3; padding:2px 6px; border-radius:4px; font-size:0.85em;">${prod.promoTag}</span>` : ''}</div>
+
+
                                     <div class="card-sub"><strong>Vendas:</strong> ${prod.vendas}</div>
                                 </div>
                             </div>
