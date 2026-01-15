@@ -837,8 +837,9 @@
                     const row = rows[i];
                     if (!row || row.length === 0) continue;
 
-                    const creativeVal = safe(row[idxCreative]);
-                    if (!creativeVal) continue;
+                    let creativeVal = safe(row[idxCreative]);
+                    // Incluir ofertas mesmo sem chamada; usar label padrão
+                    if (!creativeVal) creativeVal = 'OFERTA';
                     const dinamicaVal = (idxDinamica !== -1 ? safe(row[idxDinamica]) : '').toUpperCase();
                     const socialFlagVal = (idxSocialFlag !== -1 ? String(row[idxSocialFlag] || '').trim() : '');
                     const orderNumValRaw = (idxOrderNum !== -1 ? row[idxOrderNum] : null);
@@ -873,12 +874,11 @@
                 }
 
                 const produtosSelecionados = [];
-                const MAX_POR_PASTA = 5;
-
+                // Remover limite por pasta: incluir todos os itens
                 for (const [pastaKey, produtos] of produtosPorPasta.entries()) {
                     let produtosOrdenados = produtos;
                     if (idxSales !== -1) produtosOrdenados = produtos.sort((a, b) => b.vendas - a.vendas);
-                    produtosSelecionados.push(...produtosOrdenados.slice(0, MAX_POR_PASTA));
+                    produtosSelecionados.push(...produtosOrdenados);
                 }
 
                 setLoading(true, 'Montando dados...');
