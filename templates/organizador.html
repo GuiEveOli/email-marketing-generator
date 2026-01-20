@@ -418,12 +418,57 @@
             font-weight: 700; 
             font-size: 0.9rem; 
             color: var(--text-main); 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
-            white-space: nowrap; 
             flex: 1; 
             min-width: 0;
         }
+        .card-sku-inline .label-text {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        /* Tooltip customizada para a chamada (creative) */
+        .card-sku-inline.has-tooltip { position: relative; overflow: visible; }
+        .card-sku-inline.has-tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            background: #111827; /* slate-900 */
+            color: #fff;
+            padding: 8px 10px;
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+            white-space: normal;
+            max-width: 320px;
+            width: max-content;
+            min-width: 160px;
+            text-align: left;
+            line-height: 1.3;
+            font-size: 12px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .15s ease, transform .15s ease;
+            z-index: 999;
+        }
+        .card-sku-inline.has-tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 3px);
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 8px;
+            height: 8px;
+            background: #111827;
+            opacity: 0;
+            transition: opacity .15s ease;
+            z-index: 998;
+        }
+        .card-sku-inline.has-tooltip:hover::after,
+        .card-sku-inline.has-tooltip:focus::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .card-sku-inline.has-tooltip:hover::before,
+        .card-sku-inline.has-tooltip:focus::before { opacity: 1; }
         .card-sub { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Tabelas de Preço */
@@ -440,7 +485,7 @@
         .badge-desc { font-weight: 700; font-size: 0.75rem; }
 
         /* --- Modais --- */
-        .image-modal, .prices-modal {
+        .image-modal, .prices-modal, .sheet-modal {
             position: fixed;
             inset: 0;
             display: none;
@@ -448,9 +493,9 @@
             justify-content: center;
             z-index: 1000;
         }
-        .image-modal.active, .prices-modal.active { display: flex; }
+        .image-modal.active, .prices-modal.active, .sheet-modal.active { display: flex; }
 
-        .modal-backdrop, .prices-backdrop {
+        .modal-backdrop, .prices-backdrop, .sheet-backdrop {
             position: absolute;
             inset: 0;
             background: rgba(15, 23, 42, 0.6);
@@ -459,7 +504,7 @@
             animation: fadeIn 0.2s forwards;
         }
 
-        .modal-content, .prices-content {
+        .modal-content, .prices-content, .sheet-content {
             position: relative;
             background: white;
             border-radius: var(--radius);
@@ -477,14 +522,15 @@
         }
         
         .prices-content { width: 800px; }
+        .sheet-content { width: 90vw; }
 
-        .modal-header, .prices-header {
+        .modal-header, .prices-header, .sheet-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .modal-title, .prices-title { font-weight: 700; font-size: 1.1rem; color: var(--text-main); }
-        .modal-close, .prices-close {
+        .modal-title, .prices-title, .sheet-title { font-weight: 700; font-size: 1.1rem; color: var(--text-main); }
+        .modal-close, .prices-close, .sheet-close {
             border: none;
             background: transparent;
             font-size: 1.5rem;
@@ -493,6 +539,18 @@
             padding: 0;
             line-height: 1;
         }
+
+        /* Tabela da planilha */
+        .sheet-body { flex: 1; overflow: auto; }
+        .sheet-table { width: 100%; border-collapse: collapse; background: white; }
+        .sheet-table thead th { position: sticky; top: 0; background: #f8fafc; border-bottom: 1px solid var(--border); z-index: 1; }
+        .sheet-table th, .sheet-table td { border-bottom: 1px solid #e5e7eb; padding: 8px 10px; font-size: 0.85rem; color: var(--text-body); text-align: left; }
+        .sheet-table tr:hover td { background: #f9fafb; }
+        .sheet-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+        .sheet-toolbar .input-field { max-width: 320px; }
+        .sheet-toolbar .radio-group { display: inline-flex; gap: 8px; align-items: center; }
+        .sheet-toolbar .radio-group label { display: inline-flex; gap: 4px; align-items: center; font-size: 0.85rem; color: var(--text-muted); }
+        .sheet-toolbar .select-clean, .sheet-toolbar .btn { font-size: 0.85rem; }
         .modal-close:hover, .prices-close:hover { color: var(--danger); }
 
         .modal-image-box {
@@ -602,6 +660,12 @@
                     <button type="button" id="download_zip_button" class="btn btn-secondary" disabled>
                         📦 Baixar Estrutura (.zip)
                     </button>
+                    <button type="button" id="view_sheet_button" class="btn btn-secondary" disabled>
+                        🧾 Visualizar Planilha
+                    </button>
+                    <button type="button" id="view_smarket_button" class="btn btn-secondary" disabled title="Abrir campanha Smarket">
+                        📣 Visualizar Campanha Smarket
+                    </button>
                 </div>
             </form>
         </div>
@@ -668,6 +732,18 @@
                 <div id="prices_body"></div>
             </div>
         </div>
+
+        <!-- Modal de Planilha -->
+        <div id="sheet_modal" class="sheet-modal" aria-hidden="true">
+            <div class="sheet-backdrop"></div>
+            <div class="sheet-content" role="dialog" aria-modal="true">
+                <div class="sheet-header">
+                    <div class="sheet-title">Planilha original</div>
+                    <button id="sheet_close" class="sheet-close" aria-label="Fechar">✕</button>
+                </div>
+                <div id="sheet_body" class="sheet-body"></div>
+            </div>
+        </div>
         
     </main>
 
@@ -676,6 +752,8 @@
         const fileInput = document.getElementById('excel_file');
         const processButton = document.getElementById('process_button');
         const downloadZipButton = document.getElementById('download_zip_button');
+        const viewSheetButton = document.getElementById('view_sheet_button');
+        const viewSmarketButton = document.getElementById('view_smarket_button');
         // status/aviso removido do DOM
         // Campos de configuração removidos: colunas são definidas automaticamente
         const previewSection = document.getElementById('preview_section');
@@ -686,6 +764,8 @@
         const imagemBlobsPorSKU = new Map();
         const produtoInfoCache = new Map();
         const produtoPreviewData = [];
+        let originalSheetRows = null;
+        let smarketCampaignCode = null;
         let filtroBusca = '';
 
         // Adiciona o listener ao botão
@@ -774,6 +854,7 @@
                 const workbook = XLSX.read(data);
                 const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                 const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                originalSheetRows = rows;
 
                 if (rows.length < 2) throw new Error('Planilha vazia ou sem cabeçalho.');
 
@@ -1063,7 +1144,7 @@
                                 <div class="card-meta">
                                     <div class="card-line">
                                         <div class="card-tag">${prod.dinamicaRaw || prod.dinamica || 'Geral'}</div>
-                                        <div class="card-sku-inline">${prod.creative}</div>
+                                        <div class="card-sku-inline has-tooltip" data-tooltip="${prod.creative}" tabindex="0" aria-label="${prod.creative}"><span class="label-text">${prod.creative}</span></div>
                                     </div>
                                     ${typeof prod.ordemBanner === 'number' ? `<div class="card-sub"><strong>Ordem:</strong> ${prod.ordemBanner}</div>` : ''}
                                     ${prod.socialMedia ? `<div class="card-sub" style="color:#2563eb; font-weight:600;">Social Media</div>` : ''}
@@ -1292,6 +1373,12 @@
                 renderCards(produtoPreviewData);
                 previewInfo.textContent = `Total: ${produtoPreviewData.length} produto(s)`;
                 downloadZipButton.disabled = produtoPreviewData.length === 0;
+                viewSheetButton.disabled = !originalSheetRows || originalSheetRows.length <= 1;
+                // Extrai os 5 primeiros dígitos do nome da planilha para campanha Smarket
+                const baseName = excelFile && excelFile.name ? String(excelFile.name).split('.')[0] : '';
+                const digits = baseName.match(/\d/g) || [];
+                smarketCampaignCode = digits.slice(0, 5).join('') || null;
+                viewSmarketButton.disabled = !(smarketCampaignCode && smarketCampaignCode.length === 5);
 
                 setLoading(false);
                 showStatus('Preview gerada com sucesso!', false);
@@ -1485,6 +1572,161 @@
                 setLoading(false);
             }
         });
+
+        // Abrir campanha Smarket
+        viewSmarketButton.addEventListener('click', () => {
+            if (viewSmarketButton.disabled) return;
+            const code = smarketCampaignCode;
+            if (!code) return;
+            const url = `https://koch.smarketsolutions.com.br/ofertas/campanha/${code}/por-pagina`;
+            try {
+                window.open(url, '_blank', 'noopener');
+            } catch (_) {
+                // Fallback: navegação direta
+                location.href = url;
+            }
+        });
+
+        // Visualizar planilha original
+        viewSheetButton.addEventListener('click', () => {
+            if (viewSheetButton.disabled) return;
+            const sheetModal = document.getElementById('sheet_modal');
+            const sheetBody = document.getElementById('sheet_body');
+            if (!originalSheetRows || originalSheetRows.length === 0) return;
+
+            const headers = [...(originalSheetRows[0] || [])];
+            const baseRows = originalSheetRows.slice(1).map(r => [...(r || [])]);
+
+            // State para visualização
+            let visibleCols = headers.map((_, i) => i);
+            let filteredRows = [...baseRows];
+            // Ordenação removida; manter apenas busca/filtro
+            let filterTarget = 'rows'; // 'rows' | 'cols'
+            let query = '';
+
+            const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+            const norm = (s) => String(s ?? '').toLowerCase().trim();
+            const parseNumber = (s) => {
+                if (typeof s === 'number') return s;
+                let t = String(s ?? '').trim();
+                if (!t) return NaN;
+                t = t.replace(/\s+/g,'');
+                t = t.replace(/R\$|r\$/g,'');
+                t = t.replace(/\./g,''); // ponto como milhar
+                t = t.replace(/,/g,'.');  // vírgula como decimal
+                t = t.replace(/[^0-9.\-]/g,'');
+                const n = parseFloat(t);
+                return isNaN(n) ? NaN : n;
+            };
+
+            function renderControls() {
+                const colOptions = headers.map((h, i) => `<option value="${i}">${escapeHtml(h || ('Coluna ' + (i+1)))}</option>`).join('');
+                return `
+                    <div class="sheet-toolbar">
+                        <input type="text" id="sheet_search" class="input-field" placeholder="Buscar..." />
+                        <div class="radio-group" id="filter_target_group">
+                            <label><input type="radio" name="filter_target" value="rows" checked /> Linhas</label>
+                            <label><input type="radio" name="filter_target" value="cols" /> Colunas</label>
+                        </div>
+                        <button id="sheet_clear_filters" class="btn">Limpar</button>
+                    </div>
+                    <div id="sheet_table_box"></div>
+                `;
+            }
+
+            function renderTable() {
+                const thead = `<tr>${visibleCols.map(ci => `<th>${escapeHtml(headers[ci])}</th>`).join('')}</tr>`;
+                const tbody = filteredRows.map(row => `<tr>${visibleCols.map(ci => `<td>${escapeHtml(row[ci] ?? '')}</td>`).join('')}</tr>`).join('');
+                const box = document.getElementById('sheet_table_box');
+                if (box) box.innerHTML = `<table class="sheet-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+            }
+
+            function applyFilters() {
+                if (filterTarget === 'rows') {
+                    const q = norm(query);
+                    if (!q) {
+                        filteredRows = [...baseRows];
+                    } else {
+                        filteredRows = baseRows.filter(row => row.some(val => norm(val).includes(q)));
+                    }
+                    // Colunas ficam todas visíveis
+                    visibleCols = headers.map((_, i) => i);
+                } else {
+                    const q = norm(query);
+                    if (!q) {
+                        visibleCols = headers.map((_, i) => i);
+                    } else {
+                        visibleCols = headers.map((h, i) => ({h, i})).filter(obj => norm(obj.h).includes(q)).map(obj => obj.i);
+                        if (visibleCols.length === 0) visibleCols = headers.map((_, i) => i);
+                    }
+                    filteredRows = [...baseRows];
+                }
+            }
+
+            // Ordenação removida
+
+            // Monta UI inicial
+            sheetBody.innerHTML = renderControls();
+            applyFilters();
+            renderTable();
+
+            // Eventos
+            const searchInput = document.getElementById('sheet_search');
+            const filterGroup = document.getElementById('filter_target_group');
+            const clearBtn = document.getElementById('sheet_clear_filters');
+
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    query = e.target.value || '';
+                    applyFilters();
+                    renderTable();
+                });
+            }
+            if (filterGroup) {
+                filterGroup.addEventListener('change', (e) => {
+                    const t = e.target?.value;
+                    if (t === 'rows' || t === 'cols') {
+                        filterTarget = t;
+                        applyFilters();
+                        renderTable();
+                    }
+                });
+            }
+            // Eventos de ordenação removidos
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    query = '';
+                    filterTarget = 'rows';
+                    if (searchInput) searchInput.value = '';
+                    const rowsRadio = filterGroup?.querySelector('input[value="rows"]');
+                    if (rowsRadio) rowsRadio.checked = true;
+                    visibleCols = headers.map((_, i) => i);
+                    filteredRows = [...baseRows];
+                    renderTable();
+                });
+            }
+
+            sheetModal.classList.add('active');
+            sheetModal.setAttribute('aria-hidden', 'false');
+        });
+
+        // Eventos do modal da planilha
+        (function setupSheetModal(){
+            const sheetModal = document.getElementById('sheet_modal');
+            const sheetCloseBtn = document.getElementById('sheet_close');
+            const sheetBackdrop = document.querySelector('#sheet_modal .sheet-backdrop');
+
+            function closeModal(){
+                sheetModal.classList.remove('active');
+                sheetModal.setAttribute('aria-hidden', 'true');
+                const sheetBody = document.getElementById('sheet_body');
+                if (sheetBody) sheetBody.innerHTML = '';
+            }
+
+            sheetCloseBtn.addEventListener('click', closeModal);
+            sheetBackdrop.addEventListener('click', closeModal);
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+        })();
     </script>
 </body>
 </html>
